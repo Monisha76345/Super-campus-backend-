@@ -1,0 +1,21 @@
+---
+description: Project-level architecture and standards (load prompt/prompt.txt)
+alwaysApply: true
+---
+
+# Project prompt
+
+This codebase follows a **project-level prompt** that defines architecture, tech stack, and coding standards.
+
+**Always read and apply:** `prompt/prompt.txt`
+
+Use it for:
+
+- **Tech stack**: NestJS, TypeScript, TypeORM, MySQL, Redis, MinIO, JWT, Swagger
+- **Structure**: `src/core/` (auth, tenant, database, audit, redis, storage, common, models), `src/modules/` (user, campus, community, food, outpass, sports, marketplace, project, internship), `src/config/`
+- **Principles**: Clean Architecture, separation of concerns, one database per campus, field-level audit, transaction handling, RBAC
+- **Layering**: Controller → Service → **DataService** → Repository (repositories only via module data services; no direct repository from controllers)
+- **Deletes**: Prefer **soft delete** (`deletedAt` / `deletedBy`); stamp actor via `getAuditContext()`; GET/list must exclude deleted rows; tables without those columns may use **status** (see prompt)
+- **Scope**: This repo is scaffold-only until a feature is requested. Do not add application code unless the task asks for it.
+
+When making changes, align with the full specification in `prompt/prompt.txt` and `docs/PROJECT_GUIDE.md`.

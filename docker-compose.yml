@@ -1,0 +1,56 @@
+version: "3.8"
+
+# Local infrastructure for Supercampus.
+# Ports are offset from the shared IEBA dev stack so both can run on one machine.
+#   MySQL  3310  (IEBA uses 3307)
+#   Redis  6381  (IEBA uses 6379)
+#   MinIO  9010 / console 9011  (IEBA uses 9000 / 9001)
+
+services:
+  mysql:
+    image: mysql:8.1
+    container_name: supercampus-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: supercampus_root
+      MYSQL_DATABASE: supercampus_global
+      MYSQL_USER: supercampus
+      MYSQL_PASSWORD: supercampus_dev
+    ports:
+      - "3310:3306"
+    volumes:
+      - ./data/mysql:/var/lib/mysql
+      - ./scripts/mysql-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-usupercampus", "-psupercampus_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7
+    container_name: supercampus-redis
+    restart: unless-stopped
+    ports:
+      - "6381:6379"
+    volumes:
+      - ./data/redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    container_name: supercampus-minio
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    ports:
+      - "9010:9000"
+      - "9011:9001"
+    volumes:
+      - ./data/minio:/data
