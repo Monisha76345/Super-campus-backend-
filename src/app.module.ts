@@ -15,6 +15,10 @@ import { RedisModule } from "./core/redis/redis.module";
 import { TenantMiddleware } from "./core/tenant/tenant.middleware";
 import { TenantModule } from "./core/tenant/tenant.module";
 
+import { OutpassModule } from "./modules/outpass/outpass.module";
+import { ProjectModule } from "./modules/project/project.module";
+import { ChatModule } from "./modules/chat/chat.module";
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -28,6 +32,9 @@ import { TenantModule } from "./core/tenant/tenant.module";
     MailModule,
     AuthModule,
     DocumentUploaderModule,
+    OutpassModule,
+    ProjectModule,
+    ChatModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },

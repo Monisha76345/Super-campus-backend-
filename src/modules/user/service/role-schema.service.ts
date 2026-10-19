@@ -75,7 +75,25 @@ export class RoleSchemaService implements OnModuleInit {
       });
       try {
         for (const statement of statements) {
-          await connection.query(statement);
+          try {
+            await connection.query(statement);
+          } catch (stmtError: any) {
+            // 1060 = ER_DUP_FIELDNAME, 1061 = ER_DUP_KEYNAME, 1050 = ER_TABLE_EXISTS_ERROR
+            if (
+              stmtError?.errno === 1060 ||
+              stmtError?.code === "ER_DUP_FIELDNAME" ||
+              stmtError?.errno === 1061 ||
+              stmtError?.code === "ER_DUP_KEYNAME" ||
+              stmtError?.errno === 1050 ||
+              stmtError?.code === "ER_TABLE_EXISTS_ERROR"
+            ) {
+              this.logger.debug(
+                `Skipping already applied migration statement on ${namespace} (${stmtError.code || stmtError.errno}): ${stmtError.message}`,
+              );
+              continue;
+            }
+            throw stmtError;
+          }
         }
       } finally {
         await connection.end();

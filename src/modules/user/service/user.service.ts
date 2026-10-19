@@ -678,4 +678,28 @@ export class UserService {
     }
     return otp;
   }
+
+  async getStudentForOutpass(userId: string): Promise<{
+    fullName: string;
+    usn: string | null;
+    isHostelite: boolean;
+  }> {
+    const namespace = this.tenantContext.getTenantId();
+    const user = await this.data.findUserById(namespace, userId);
+    if (!user) {
+      throw new NotFoundException("User account not found");
+    }
+    const directory = await this.data.findDirectoryById(namespace, user.directoryId);
+    const profile = await this.data.findProfileByUserId(namespace, userId);
+    const fullName =
+      [profile?.firstName, profile?.lastName].filter(Boolean).join(" ").trim() ||
+      directory?.fullName ||
+      "Student";
+    const isHostelite = directory?.isHostelite ?? false;
+    return {
+      fullName,
+      usn: directory?.usn ?? null,
+      isHostelite,
+    };
+  }
 }
