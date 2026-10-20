@@ -18,6 +18,7 @@ import { TenantModule } from "./core/tenant/tenant.module";
 import { OutpassModule } from "./modules/outpass/outpass.module";
 import { ProjectModule } from "./modules/project/project.module";
 import { ChatModule } from "./modules/chat/chat.module";
+import { MarketplaceModule } from "./modules/marketplace/marketplace.module";
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { ChatModule } from "./modules/chat/chat.module";
     OutpassModule,
     ProjectModule,
     ChatModule,
+    MarketplaceModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
