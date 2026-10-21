@@ -19,6 +19,9 @@ export class ParticipantSummaryDto {
 
   @ApiProperty({ nullable: true })
   department: string | null;
+
+  @ApiProperty({ nullable: true })
+  photoKey?: string | null;
 }
 
 export class ChatThreadResDto {

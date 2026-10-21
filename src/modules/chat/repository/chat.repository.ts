@@ -4,6 +4,7 @@ import { ChatParticipant } from "../entity/chat-participant.model";
 import { ChatMessage } from "../entity/chat-message.model";
 import { ChatThreadType } from "../entity/enums/chat-thread-type.enum";
 import { CampusDirectory } from "src/modules/user/entity/campus-directory.model";
+import { UserProfile } from "src/modules/user/entity/profile.model";
 import { UserAccount } from "src/modules/user/entity/user.model";
 
 export class ChatRepository {
@@ -76,16 +77,17 @@ export class ChatRepository {
     });
   }
 
-  async findDirectoryUserById(userId: string): Promise<{ directory: CampusDirectory; user: UserAccount } | null> {
+  async findDirectoryUserById(userId: string): Promise<{ directory: CampusDirectory; user: UserAccount; photoKey: string | null } | null> {
     const user = await this.manager.getRepository(UserAccount).findOne({ where: { id: userId } });
     if (!user) return null;
     const directory = await this.manager.getRepository(CampusDirectory).findOne({ where: { id: user.directoryId } });
     if (!directory) return null;
-    return { directory, user };
+    const profile = await this.manager.getRepository(UserProfile).findOne({ where: { userId }, select: ["id", "userId", "photoKey"] });
+    return { directory, user, photoKey: profile?.photoKey ?? null };
   }
 
-  async findDirectoryUsersByUserIds(userIds: string[]): Promise<Map<string, CampusDirectory>> {
-    const map = new Map<string, CampusDirectory>();
+  async findDirectoryUsersByUserIds(userIds: string[]): Promise<Map<string, { directory: CampusDirectory; photoKey: string | null }>> {
+    const map = new Map<string, { directory: CampusDirectory; photoKey: string | null }>();
     if (!userIds.length) return map;
 
     const users = await this.manager.getRepository(UserAccount).find({
@@ -94,19 +96,31 @@ export class ChatRepository {
     const dirIds = users.map((u) => u.directoryId).filter(Boolean);
     if (!dirIds.length) return map;
 
-    const directories = await this.manager.getRepository(CampusDirectory).find({
-      where: { id: In(dirIds) },
-    });
+    const [directories, profiles] = await Promise.all([
+      this.manager.getRepository(CampusDirectory).find({
+        where: { id: In(dirIds) },
+      }),
+      this.manager.getRepository(UserProfile).find({
+        where: { userId: In(userIds) },
+        select: ["id", "userId", "photoKey"],
+      }),
+    ]);
     const dirMap = new Map(directories.map((d) => [d.id, d]));
+    const photoMap = new Map(profiles.map((p) => [p.userId, p.photoKey]));
 
     for (const u of users) {
       const d = dirMap.get(u.directoryId);
-      if (d) map.set(u.id, d);
+      if (d) {
+        map.set(u.id, {
+          directory: d,
+          photoKey: photoMap.get(u.id) || null,
+        });
+      }
     }
     return map;
   }
 
-  async searchDirectoryUsers(query: string, excludeUserId: string): Promise<Array<{ user: UserAccount; directory: CampusDirectory }>> {
+  async searchDirectoryUsers(query: string, excludeUserId: string): Promise<Array<{ user: UserAccount; directory: CampusDirectory; photoKey: string | null }>> {
     const cleanQ = query.trim().toLowerCase();
     const dirQb = this.manager
       .getRepository(CampusDirectory)
@@ -130,6 +144,15 @@ export class ChatRepository {
       },
     });
 
+    const activeUserIds = users.map((u) => u.id).filter((id) => id !== excludeUserId);
+    const profiles = activeUserIds.length
+      ? await this.manager.getRepository(UserProfile).find({
+          where: { userId: In(activeUserIds) },
+          select: ["id", "userId", "photoKey"],
+        })
+      : [];
+    const photoMap = new Map(profiles.map((p) => [p.userId, p.photoKey]));
+
     const userMap = new Map<string, UserAccount>();
     users.forEach((u) => {
       if (u.id !== excludeUserId) {
@@ -137,11 +160,11 @@ export class ChatRepository {
       }
     });
 
-    const results: Array<{ user: UserAccount; directory: CampusDirectory }> = [];
+    const results: Array<{ user: UserAccount; directory: CampusDirectory; photoKey: string | null }> = [];
     directories.forEach((d) => {
       const u = userMap.get(d.id);
       if (u) {
-        results.push({ user: u, directory: d });
+        results.push({ user: u, directory: d, photoKey: photoMap.get(u.id) || null });
       }
     });
 

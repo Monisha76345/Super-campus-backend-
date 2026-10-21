@@ -52,11 +52,11 @@ export class ChatDataService {
     return (await this.repo(namespace)).getParticipants(threadId);
   }
 
-  async findDirectoryUserById(namespace: string, userId: string): Promise<{ directory: CampusDirectory; user: UserAccount } | null> {
+  async findDirectoryUserById(namespace: string, userId: string): Promise<{ directory: CampusDirectory; user: UserAccount; photoKey: string | null } | null> {
     return (await this.repo(namespace)).findDirectoryUserById(userId);
   }
 
-  async findDirectoryUsersByUserIds(namespace: string, userIds: string[]): Promise<Map<string, CampusDirectory>> {
+  async findDirectoryUsersByUserIds(namespace: string, userIds: string[]): Promise<Map<string, { directory: CampusDirectory; photoKey: string | null }>> {
     return (await this.repo(namespace)).findDirectoryUsersByUserIds(userIds);
   }
 
@@ -64,7 +64,7 @@ export class ChatDataService {
     namespace: string,
     query: string,
     excludeUserId: string,
-  ): Promise<Array<{ user: UserAccount; directory: CampusDirectory }>> {
+  ): Promise<Array<{ user: UserAccount; directory: CampusDirectory; photoKey: string | null }>> {
     return (await this.repo(namespace)).searchDirectoryUsers(query, excludeUserId);
   }
 }

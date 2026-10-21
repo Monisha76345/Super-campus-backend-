@@ -21,4 +21,7 @@ export class SearchUserResDto {
 
   @ApiProperty()
   initials: string;
+
+  @ApiProperty({ nullable: true })
+  photoKey?: string | null;
 }

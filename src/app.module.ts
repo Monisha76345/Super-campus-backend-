@@ -19,6 +19,7 @@ import { OutpassModule } from "./modules/outpass/outpass.module";
 import { ProjectModule } from "./modules/project/project.module";
 import { ChatModule } from "./modules/chat/chat.module";
 import { MarketplaceModule } from "./modules/marketplace/marketplace.module";
+import { ConnectModule } from "./modules/connect/connect.module";
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { MarketplaceModule } from "./modules/marketplace/marketplace.module";
     ProjectModule,
     ChatModule,
     MarketplaceModule,
+    ConnectModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },

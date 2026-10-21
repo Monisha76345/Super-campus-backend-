@@ -55,21 +55,26 @@ export class ChatService {
 
   async getThreads(userId: string): Promise<ChatThreadResDto[]> {
     const threads = await this.data.findThreadsForUser(this.namespace, userId);
-    if (!threads.length) return [];
+    // Only return threads that have at least one message sent
+    const activeThreads = threads.filter(
+      (t) => t.lastMessageText && t.lastMessageText.trim().length > 0,
+    );
+    if (!activeThreads.length) return [];
 
     // Collect all recipient user IDs
     const otherUserIds = new Set<string>();
-    threads.forEach((t) => {
+    activeThreads.forEach((t) => {
       const other = t.participants?.find((p) => p.userId !== userId);
       if (other) otherUserIds.add(other.userId);
     });
 
     const dirMap = await this.data.findDirectoryUsersByUserIds(this.namespace, Array.from(otherUserIds));
 
-    return threads.map((thread) => {
+    return activeThreads.map((thread) => {
       const otherParticipant = thread.participants?.find((p) => p.userId !== userId);
       const otherUserId = otherParticipant?.userId || "";
-      const dir = dirMap.get(otherUserId);
+      const info = dirMap.get(otherUserId);
+      const dir = info?.directory;
 
       const recipient: ParticipantSummaryDto = {
         userId: otherUserId,
@@ -78,6 +83,7 @@ export class ChatService {
         role: dir?.role || "STUDENT",
         initials: this.initials(dir?.fullName || "Campus Member"),
         department: dir?.department || null,
+        photoKey: info?.photoKey || null,
       };
 
       return {
@@ -107,7 +113,8 @@ export class ChatService {
     const dirMap = await this.data.findDirectoryUsersByUserIds(this.namespace, senderIds);
 
     return messages.map((m) => {
-      const dir = dirMap.get(m.senderId);
+      const info = dirMap.get(m.senderId);
+      const dir = info?.directory;
       return {
         id: m.id,
         threadId: m.threadId,
@@ -173,6 +180,7 @@ export class ChatService {
       role: dir.role,
       initials: this.initials(dir.fullName),
       department: dir.department,
+      photoKey: recipientUser.photoKey || null,
     };
 
     return {
@@ -238,7 +246,7 @@ export class ChatService {
 
   async searchUsers(userId: string, query: string): Promise<SearchUserResDto[]> {
     const list = await this.data.searchDirectoryUsers(this.namespace, query, userId);
-    return list.map(({ user, directory }) => ({
+    return list.map(({ user, directory, photoKey }) => ({
       userId: user.id,
       fullName: directory.fullName,
       usn: directory.usn,
@@ -246,6 +254,7 @@ export class ChatService {
       role: directory.role,
       department: directory.department,
       initials: this.initials(directory.fullName),
+      photoKey: photoKey || null,
     }));
   }
 }

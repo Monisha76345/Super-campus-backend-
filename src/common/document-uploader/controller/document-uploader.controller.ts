@@ -26,6 +26,7 @@ import { ApiResponseDto } from "src/core/common/dto/api-response.dto";
 import { TenantContextService } from "src/core/tenant/tenant-context.service";
 import { UploadDocumentReqDto } from "src/modules/document/dto/request/upload-document.req.dto";
 import { DocumentUploaderService } from "../services/document-uploader.service";
+import { Public } from "src/core/common/decorators/public.decorator";
 
 @ApiTags("Document Uploader")
 @ApiBearerAuth()
@@ -95,6 +96,7 @@ export class DocumentUploaderController {
     return ApiResponseDto.success(result, "Success");
   }
 
+  @Public()
   @Get("preview")
   @ApiOperation({ summary: "Preview a document by storage key" })
   async preview(@Query("key") key: string, @Res() res: Response) {
