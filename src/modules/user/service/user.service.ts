@@ -24,6 +24,7 @@ import { ImportBatchStatus } from "../entity/enums/import-batch-status.enum";
 import { ImportBatch } from "../entity/import-batch.model";
 import { UserAccount } from "../entity/user.model";
 import { ActivationTokenResDto } from "../dto/response/activation-token.res.dto";
+import { ResetTokenResDto } from "src/core/auth/dto/reset-token.res.dto";
 import { DirectoryResDto } from "../dto/response/directory.res.dto";
 import { ImportBatchResDto, ImportRowErrorResDto } from "../dto/response/import-batch.res.dto";
 import { OtpSentResDto } from "../dto/response/otp-sent.res.dto";
@@ -291,6 +292,70 @@ export class UserService {
       return UserMapper.toSession(claim.tenantId, directory, user);
     });
     this.logger.log(`Activated ${account.email} on ${claim.tenantId}`);
+    return account;
+  }
+
+  async requestForgotPasswordOtp(email: string, tenantId?: string): Promise<OtpSentResDto> {
+    const loginId = email.trim().toLowerCase();
+    const located = await this.locate(loginId);
+    if (!located) {
+      throw new NotFoundException("This college email is not registered on the campus list");
+    }
+    const { directory } = located;
+    if (directory.status === DirectoryStatus.DISABLED) {
+      throw new BadRequestException("This account is disabled");
+    }
+    if (!directory.userId || directory.status !== DirectoryStatus.ACTIVE) {
+      throw new BadRequestException("This account is not yet active. Please activate your account first");
+    }
+    const code = await this.otp.issue(`forgot:${loginId}`);
+    const debugOtp = await this.deliver(loginId, code);
+    return { destination: loginId, debugOtp };
+  }
+
+  async verifyForgotPasswordOtp(email: string, otp: string, tenantId?: string): Promise<ResetTokenResDto> {
+    const loginId = email.trim().toLowerCase();
+    const located = await this.locate(loginId);
+    if (!located || !located.directory.userId || located.directory.status !== DirectoryStatus.ACTIVE) {
+      throw new UnauthorizedException("Invalid or expired code");
+    }
+    const valid = await this.otp.check(`forgot:${loginId}`, otp.trim());
+    if (!valid) {
+      throw new UnauthorizedException("Invalid or expired code");
+    }
+    const resetToken = await this.otp.saveResetPassword({
+      tenantId: located.tenantId,
+      directoryId: located.directory.id,
+      userId: located.directory.userId,
+      email: loginId,
+    });
+    return { resetToken };
+  }
+
+  async resetPasswordWithToken(resetToken: string, password: string): Promise<SessionAccount> {
+    if (password.length < 6) {
+      throw new BadRequestException("Password must be at least 6 characters long");
+    }
+    const claim = await this.otp.takeResetPassword(resetToken.trim());
+    if (!claim) {
+      throw new UnauthorizedException("This password reset token has expired or is invalid");
+    }
+    const account = await this.data.transaction(claim.tenantId, async (repo) => {
+      const user = await repo.findUserById(claim.userId);
+      if (!user) {
+        throw new NotFoundException("User account not found");
+      }
+      const directory = await repo.findDirectoryById(claim.directoryId);
+      if (!directory) {
+        throw new NotFoundException("Campus directory record not found");
+      }
+      user.passwordHash = await hashPassword(password);
+      user.changePasswordRequired = false;
+      user.updatedBy = user.id;
+      await repo.saveUser(user);
+      return UserMapper.toSession(claim.tenantId, directory, user);
+    });
+    this.logger.log(`Password reset successfully for ${account.email} on ${claim.tenantId}`);
     return account;
   }
 

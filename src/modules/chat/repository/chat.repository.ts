@@ -37,6 +37,10 @@ export class ChatRepository {
     return this.manager.getRepository(ChatParticipant).save(participant);
   }
 
+  async saveParticipants(participants: ChatParticipant[]): Promise<ChatParticipant[]> {
+    return this.manager.getRepository(ChatParticipant).save(participants);
+  }
+
   async saveMessage(message: ChatMessage): Promise<ChatMessage> {
     return this.manager.getRepository(ChatMessage).save(message);
   }
@@ -75,6 +79,10 @@ export class ChatRepository {
     return this.manager.getRepository(ChatParticipant).find({
       where: { threadId },
     });
+  }
+
+  async removeParticipant(threadId: string, userId: string): Promise<void> {
+    await this.manager.getRepository(ChatParticipant).delete({ threadId, userId });
   }
 
   async findDirectoryUserById(userId: string): Promise<{ directory: CampusDirectory; user: UserAccount; photoKey: string | null } | null> {

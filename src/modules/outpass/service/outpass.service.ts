@@ -40,6 +40,10 @@ export class OutpassService {
     // Retrieve student profile and info through UserService (respecting layer boundaries)
     const student = await this.user.getStudentForOutpass(userId);
 
+    if (!student.isHostelite) {
+      throw new BadRequestException("Outpass requests are only permitted for registered hostelite students");
+    }
+
     const outpass = new OutpassRequest();
     outpass.id = randomUUID();
     outpass.studentId = userId;

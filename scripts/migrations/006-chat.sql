@@ -4,6 +4,8 @@
 CREATE TABLE IF NOT EXISTS `chat_thread` (
   `id` varchar(36) NOT NULL,
   `type` enum('DIRECT','GROUP') NOT NULL DEFAULT 'DIRECT',
+  `name` varchar(255) NULL,
+  `photoKey` varchar(255) NULL,
   `lastMessageText` varchar(500) NULL,
   `lastMessageAt` datetime(6) NULL,
   `lastSenderId` varchar(36) NULL,

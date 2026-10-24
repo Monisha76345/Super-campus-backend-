@@ -51,8 +51,8 @@ export class UserController {
   }
 
   @Patch("directory/:usn/hostelite")
-  @Roles(ROLES.CAMPUS_ADMIN, ROLES.SUPER_ADMIN)
-  @ApiOperation({ summary: "Mark a student as a hostelite or a day scholar" })
+  @Roles(ROLES.WARDEN, ROLES.SUPER_ADMIN, ROLES.CAMPUS_ADMIN)
+  @ApiOperation({ summary: "Mark a student as a hostelite or a day scholar (Warden / Super Admin)" })
   async setHostelite(
     @CurrentUser() user: JwtPayload,
     @Param("usn") usn: string,

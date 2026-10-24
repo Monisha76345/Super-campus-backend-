@@ -1,10 +1,10 @@
 /**
- * Token roles. The mobile app uses student | faculty | admin | alumni.
- * `admin` maps to CAMPUS_ADMIN. SUPER_ADMIN is platform-wide and is not a mobile session role.
+ * Token roles. The mobile app uses student | faculty | alumni | warden | superadmin.
  * Hostelite is a flag on a student, not a role.
  */
 export const ROLES = {
   SUPER_ADMIN: "SUPER_ADMIN",
+  WARDEN: "WARDEN",
   CAMPUS_ADMIN: "CAMPUS_ADMIN",
   FACULTY: "FACULTY",
   STUDENT: "STUDENT",
@@ -13,4 +13,12 @@ export const ROLES = {
 
 export type Role = (typeof ROLES)[keyof typeof ROLES];
 
-export const DIRECTORY_ROLES: Role[] = [ROLES.STUDENT, ROLES.FACULTY, ROLES.ALUMNI, ROLES.CAMPUS_ADMIN];
+export const DIRECTORY_ROLES: Role[] = [
+  ROLES.STUDENT,
+  ROLES.FACULTY,
+  ROLES.ALUMNI,
+  ROLES.WARDEN,
+  ROLES.SUPER_ADMIN,
+  ROLES.CAMPUS_ADMIN,
+];
+

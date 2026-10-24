@@ -13,8 +13,12 @@ import { AlumniClaimReqDto } from "./dto/alumni-claim.req.dto";
 import { AlumniOtpReqDto } from "./dto/alumni-otp.req.dto";
 import { AlumniVerifyReqDto } from "./dto/alumni-verify.req.dto";
 import { ChangePasswordReqDto } from "./dto/change-password.req.dto";
+import { ForgotPasswordOtpReqDto } from "./dto/forgot-password-otp.req.dto";
+import { ForgotPasswordResetReqDto } from "./dto/forgot-password-reset.req.dto";
+import { ForgotPasswordVerifyReqDto } from "./dto/forgot-password-verify.req.dto";
 import { LoginReqDto } from "./dto/login.req.dto";
 import { LoginResDto } from "./dto/login.res.dto";
+import { ResetTokenResDto } from "./dto/reset-token.res.dto";
 import { SetPasswordReqDto } from "./dto/set-password.req.dto";
 
 @ApiTags("Auth")
@@ -57,6 +61,30 @@ export class AuthController {
   @ApiOperation({ summary: "Set a password and open the session" })
   async activatePassword(@Body() body: SetPasswordReqDto): Promise<ApiResponseDto<LoginResDto>> {
     return ApiResponseDto.success(await this.authService.completeActivation(body.activationToken, body.password), "Success");
+  }
+
+  @Public()
+  @Post("forgot-password/otp")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Send a password reset OTP code to registered college email" })
+  async forgotPasswordOtp(@Body() body: ForgotPasswordOtpReqDto): Promise<ApiResponseDto<OtpSentResDto>> {
+    return ApiResponseDto.success(await this.authService.requestForgotPasswordOtp(body.email, body.tenantId), "Success");
+  }
+
+  @Public()
+  @Post("forgot-password/verify")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Verify forgot password OTP and receive a one-time reset token" })
+  async forgotPasswordVerify(@Body() body: ForgotPasswordVerifyReqDto): Promise<ApiResponseDto<ResetTokenResDto>> {
+    return ApiResponseDto.success(await this.authService.verifyForgotPasswordOtp(body.email, body.otp, body.tenantId), "Success");
+  }
+
+  @Public()
+  @Post("forgot-password/reset")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Reset password using verified reset token and open session" })
+  async forgotPasswordReset(@Body() body: ForgotPasswordResetReqDto): Promise<ApiResponseDto<LoginResDto>> {
+    return ApiResponseDto.success(await this.authService.resetPasswordWithToken(body.resetToken, body.password), "Success");
   }
 
   @Public()

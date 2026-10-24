@@ -4,19 +4,22 @@ import { JwtService } from "@nestjs/jwt";
 import { LoginReqDto } from "./dto/login.req.dto";
 import { LoginResDto } from "./dto/login.res.dto";
 import { ActivationTokenResDto } from "src/modules/user/dto/response/activation-token.res.dto";
+import { ResetTokenResDto } from "./dto/reset-token.res.dto";
 import { DirectoryResDto } from "src/modules/user/dto/response/directory.res.dto";
 import { OtpSentResDto } from "src/modules/user/dto/response/otp-sent.res.dto";
 import { SessionAccount } from "src/modules/user/dto/response/session-account";
 import { UserService } from "src/modules/user/service/user.service";
 import { TenantContextService } from "../tenant/tenant-context.service";
 
-const LOCAL_ROLES = ["student", "faculty", "admin"] as const;
+const LOCAL_ROLES = ["student", "faculty", "warden", "alumni", "superadmin"] as const;
 type LocalRole = (typeof LOCAL_ROLES)[number];
 
 const LOCAL_JWT_ROLE: Record<LocalRole, string> = {
   student: "STUDENT",
   faculty: "FACULTY",
-  admin: "CAMPUS_ADMIN",
+  warden: "WARDEN",
+  alumni: "ALUMNI",
+  superadmin: "SUPER_ADMIN",
 };
 
 @Injectable()
@@ -67,6 +70,19 @@ export class AuthService {
 
   async completeActivation(activationToken: string, password: string): Promise<LoginResDto> {
     const account = await this.users.completeActivation(activationToken, password);
+    return this.issue(account);
+  }
+
+  requestForgotPasswordOtp(email: string, tenantId?: string): Promise<OtpSentResDto> {
+    return this.users.requestForgotPasswordOtp(email, tenantId);
+  }
+
+  verifyForgotPasswordOtp(email: string, otp: string, tenantId?: string): Promise<ResetTokenResDto> {
+    return this.users.verifyForgotPasswordOtp(email, otp, tenantId);
+  }
+
+  async resetPasswordWithToken(resetToken: string, password: string): Promise<LoginResDto> {
+    const account = await this.users.resetPasswordWithToken(resetToken, password);
     return this.issue(account);
   }
 
@@ -170,10 +186,10 @@ export class AuthService {
 
   private localRole(raw: string): LocalRole {
     const value = raw.trim().toLowerCase();
-    if (value === "campus_admin" || value === "super_admin") {
-      return "admin";
+    if (value === "campus_admin" || value === "super_admin" || value === "admin") {
+      return "superadmin";
     }
-    if (value === "student" || value === "faculty" || value === "admin") {
+    if (value === "student" || value === "faculty" || value === "warden" || value === "alumni" || value === "superadmin") {
       return value;
     }
     throw new UnauthorizedException("LOCAL_LOGIN_ROLE is not a supported role");

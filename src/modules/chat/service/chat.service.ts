@@ -55,22 +55,69 @@ export class ChatService {
 
   async getThreads(userId: string): Promise<ChatThreadResDto[]> {
     const threads = await this.data.findThreadsForUser(this.namespace, userId);
-    // Only return threads that have at least one message sent
+    // Return group threads, or direct threads with at least one message sent
     const activeThreads = threads.filter(
-      (t) => t.lastMessageText && t.lastMessageText.trim().length > 0,
+      (t) =>
+        t.type === ChatThreadType.GROUP ||
+        (t.lastMessageText && t.lastMessageText.trim().length > 0),
     );
     if (!activeThreads.length) return [];
 
-    // Collect all recipient user IDs
-    const otherUserIds = new Set<string>();
+    // Collect all relevant participant user IDs
+    const allUserIds = new Set<string>();
     activeThreads.forEach((t) => {
-      const other = t.participants?.find((p) => p.userId !== userId);
-      if (other) otherUserIds.add(other.userId);
+      t.participants?.forEach((p) => allUserIds.add(p.userId));
     });
 
-    const dirMap = await this.data.findDirectoryUsersByUserIds(this.namespace, Array.from(otherUserIds));
+    const dirMap = await this.data.findDirectoryUsersByUserIds(this.namespace, Array.from(allUserIds));
 
     return activeThreads.map((thread) => {
+      const isGroup = thread.type === ChatThreadType.GROUP;
+
+      if (isGroup) {
+        const groupParticipants: ParticipantSummaryDto[] = (thread.participants || []).map((p) => {
+          const info = dirMap.get(p.userId);
+          const dir = info?.directory;
+          return {
+            userId: p.userId,
+            fullName: dir?.fullName || "Member",
+            usn: dir?.usn || null,
+            role: dir?.role || "STUDENT",
+            initials: this.initials(dir?.fullName || "Member"),
+            department: dir?.department || null,
+            photoKey: info?.photoKey || null,
+          };
+        });
+
+        const groupName = thread.name || "Group Chat";
+        const count = groupParticipants.length;
+
+        const recipient: ParticipantSummaryDto = {
+          userId: thread.id,
+          fullName: groupName,
+          usn: null,
+          role: "Group",
+          initials: this.initials(groupName),
+          department: `${count} members`,
+          photoKey: thread.photoKey || null,
+        };
+
+        return {
+          id: thread.id,
+          type: thread.type,
+          name: groupName,
+          photoKey: thread.photoKey || null,
+          recipient,
+          participantsCount: count,
+          participants: groupParticipants,
+          lastMessageText: thread.lastMessageText || null,
+          lastMessageAt: thread.lastMessageAt ? new Date(thread.lastMessageAt).toISOString() : null,
+          formattedDate: this.formatDate(thread.lastMessageAt || thread.createdAt),
+          unreadCount: 0,
+        };
+      }
+
+      // DIRECT chat thread
       const otherParticipant = thread.participants?.find((p) => p.userId !== userId);
       const otherUserId = otherParticipant?.userId || "";
       const info = dirMap.get(otherUserId);
@@ -89,13 +136,228 @@ export class ChatService {
       return {
         id: thread.id,
         type: thread.type,
+        name: null,
+        photoKey: null,
         recipient,
+        participantsCount: 2,
         lastMessageText: thread.lastMessageText || null,
         lastMessageAt: thread.lastMessageAt ? new Date(thread.lastMessageAt).toISOString() : null,
         formattedDate: this.formatDate(thread.lastMessageAt || thread.createdAt),
         unreadCount: 0,
       };
     });
+  }
+
+  async createGroupChat(
+    userId: string,
+    name: string,
+    memberUserIds: string[],
+  ): Promise<ChatThreadResDto> {
+    const groupName = (name || "").trim();
+    if (!groupName) {
+      throw new BadRequestException("Group name is required");
+    }
+
+    const uniqueMembers = Array.from(new Set(memberUserIds.filter((id) => id && id !== userId)));
+    if (!uniqueMembers.length) {
+      throw new BadRequestException("Please select at least 1 other campus member to create a group");
+    }
+
+    // Verify all members exist in the directory
+    const dirMap = await this.data.findDirectoryUsersByUserIds(this.namespace, [userId, ...uniqueMembers]);
+    if (uniqueMembers.some((id) => !dirMap.has(id))) {
+      throw new BadRequestException("One or more selected participants were not found on this campus");
+    }
+
+    const threadId = randomUUID();
+    const thread = new ChatThread();
+    thread.id = threadId;
+    thread.type = ChatThreadType.GROUP;
+    thread.name = groupName;
+    thread.photoKey = null;
+    thread.lastMessageText = null;
+    thread.lastMessageAt = new Date();
+    thread.lastSenderId = null;
+    thread.createdBy = userId;
+    thread.updatedBy = userId;
+    await this.data.saveThread(this.namespace, thread);
+
+    // Add creator and all participants
+    const allParticipantIds = [userId, ...uniqueMembers];
+    const participants: ChatParticipant[] = allParticipantIds.map((pUserId) => {
+      const p = new ChatParticipant();
+      p.id = randomUUID();
+      p.threadId = threadId;
+      p.userId = pUserId;
+      p.createdBy = userId;
+      p.updatedBy = userId;
+      return p;
+    });
+    await this.data.saveParticipants(this.namespace, participants);
+
+    const participantDtos: ParticipantSummaryDto[] = allParticipantIds.map((pId) => {
+      const info = dirMap.get(pId);
+      const dir = info?.directory;
+      return {
+        userId: pId,
+        fullName: dir?.fullName || "Member",
+        usn: dir?.usn || null,
+        role: dir?.role || "STUDENT",
+        initials: this.initials(dir?.fullName || "Member"),
+        department: dir?.department || null,
+        photoKey: info?.photoKey || null,
+      };
+    });
+
+    const recipient: ParticipantSummaryDto = {
+      userId: threadId,
+      fullName: groupName,
+      usn: null,
+      role: "Group",
+      initials: this.initials(groupName),
+      department: `${participantDtos.length} members`,
+      photoKey: null,
+    };
+
+    return {
+      id: thread.id,
+      type: thread.type,
+      name: groupName,
+      photoKey: null,
+      recipient,
+      participantsCount: participantDtos.length,
+      participants: participantDtos,
+      lastMessageText: null,
+      lastMessageAt: thread.lastMessageAt ? new Date(thread.lastMessageAt).toISOString() : null,
+      formattedDate: this.formatDate(thread.lastMessageAt || thread.createdAt),
+      unreadCount: 0,
+    };
+  }
+
+  async getThreadDetails(userId: string, threadId: string): Promise<ChatThreadResDto> {
+    const thread = await this.data.findThreadById(this.namespace, threadId);
+    if (!thread) {
+      throw new NotFoundException("Conversation thread not found");
+    }
+
+    const isMember = thread.participants?.some((p) => p.userId === userId);
+    if (!isMember) {
+      throw new ForbiddenException("You are not a participant in this conversation");
+    }
+
+    const participantUserIds = (thread.participants || []).map((p) => p.userId);
+    const dirMap = await this.data.findDirectoryUsersByUserIds(this.namespace, participantUserIds);
+
+    const isGroup = thread.type === ChatThreadType.GROUP;
+    const participantDtos: ParticipantSummaryDto[] = participantUserIds.map((pId) => {
+      const info = dirMap.get(pId);
+      const dir = info?.directory;
+      return {
+        userId: pId,
+        fullName: dir?.fullName || "Member",
+        usn: dir?.usn || null,
+        role: dir?.role || "STUDENT",
+        initials: this.initials(dir?.fullName || "Member"),
+        department: dir?.department || null,
+        photoKey: info?.photoKey || null,
+      };
+    });
+
+    const groupName = isGroup ? (thread.name || "Group Chat") : (participantDtos.find((p) => p.userId !== userId)?.fullName || "Member");
+
+    const recipient: ParticipantSummaryDto = isGroup
+      ? {
+          userId: thread.id,
+          fullName: groupName,
+          usn: null,
+          role: "Group",
+          initials: this.initials(groupName),
+          department: `${participantDtos.length} members`,
+          photoKey: thread.photoKey || null,
+        }
+      : participantDtos.find((p) => p.userId !== userId) || {
+          userId: "",
+          fullName: "Campus Member",
+          usn: null,
+          role: "STUDENT",
+          initials: "CM",
+          department: null,
+          photoKey: null,
+        };
+
+    return {
+      id: thread.id,
+      type: thread.type,
+      name: thread.name || null,
+      photoKey: thread.photoKey || null,
+      recipient,
+      participantsCount: participantDtos.length,
+      participants: participantDtos,
+      lastMessageText: thread.lastMessageText || null,
+      lastMessageAt: thread.lastMessageAt ? new Date(thread.lastMessageAt).toISOString() : null,
+      formattedDate: this.formatDate(thread.lastMessageAt || thread.createdAt),
+      unreadCount: 0,
+    };
+  }
+
+  async updateGroupChat(
+    userId: string,
+    threadId: string,
+    dto: { name?: string; addMemberUserIds?: string[]; removeUserId?: string },
+  ): Promise<ChatThreadResDto> {
+    const thread = await this.data.findThreadById(this.namespace, threadId);
+    if (!thread) {
+      throw new NotFoundException("Conversation thread not found");
+    }
+    if (thread.type !== ChatThreadType.GROUP) {
+      throw new BadRequestException("Only group conversations can be edited");
+    }
+
+    const participants = await this.data.getParticipants(this.namespace, threadId);
+    const isMember = participants.some((p) => p.userId === userId);
+    if (!isMember) {
+      throw new ForbiddenException("You are not a participant in this conversation");
+    }
+
+    // 1. Update Group Name if provided
+    if (dto.name !== undefined) {
+      const cleanName = dto.name.trim();
+      if (!cleanName) {
+        throw new BadRequestException("Group name cannot be empty");
+      }
+      thread.name = cleanName;
+      thread.updatedBy = userId;
+      await this.data.saveThread(this.namespace, thread);
+    }
+
+    // 2. Add members if provided
+    if (dto.addMemberUserIds && dto.addMemberUserIds.length > 0) {
+      const existingUserIds = new Set(participants.map((p) => p.userId));
+      const toAdd = dto.addMemberUserIds.filter((id) => id && !existingUserIds.has(id));
+
+      if (toAdd.length > 0) {
+        const newParticipants: ChatParticipant[] = toAdd.map((newUserId) => {
+          const p = new ChatParticipant();
+          p.id = randomUUID();
+          p.threadId = threadId;
+          p.userId = newUserId;
+          p.createdBy = userId;
+          p.updatedBy = userId;
+          return p;
+        });
+        await this.data.saveParticipants(this.namespace, newParticipants);
+      }
+    }
+
+    // 3. Remove a member if requested
+    if (dto.removeUserId) {
+      if (participants.length <= 2) {
+        throw new BadRequestException("Groups must have at least 2 participants");
+      }
+      await this.data.removeParticipant(this.namespace, threadId, dto.removeUserId);
+    }
+
+    return this.getThreadDetails(userId, threadId);
   }
 
   async getMessages(userId: string, threadId: string): Promise<ChatMessageResDto[]> {
@@ -121,6 +383,8 @@ export class ChatService {
         senderId: m.senderId,
         senderName: dir?.fullName || "Member",
         senderUsn: dir?.usn || null,
+        senderPhotoKey: info?.photoKey || null,
+        senderInitials: this.initials(dir?.fullName || "Member"),
         content: m.content,
         status: m.status,
         isMine: m.senderId === userId,

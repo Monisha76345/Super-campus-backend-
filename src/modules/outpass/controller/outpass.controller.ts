@@ -18,7 +18,8 @@ export class OutpassController {
   constructor(private readonly outpassService: OutpassService) {}
 
   @Post()
-  @ApiOperation({ summary: "Create an outpass request" })
+  @Roles(ROLES.STUDENT)
+  @ApiOperation({ summary: "Create an outpass request (Hostelite student only)" })
   async create(
     @CurrentUser() user: JwtPayload,
     @Body() body: CreateOutpassReqDto,
@@ -28,6 +29,7 @@ export class OutpassController {
   }
 
   @Get("my-requests")
+  @Roles(ROLES.STUDENT)
   @ApiOperation({ summary: "Get all outpass requests for the logged-in student" })
   async getMyRequests(@CurrentUser() user: JwtPayload): Promise<ApiResponseDto<OutpassResDto[]>> {
     const data = await this.outpassService.getMyRequests(user.sub);
@@ -35,8 +37,8 @@ export class OutpassController {
   }
 
   @Get("admin/requests")
-  @Roles(ROLES.CAMPUS_ADMIN, ROLES.SUPER_ADMIN)
-  @ApiOperation({ summary: "Get all outpass requests across the campus (Admin/Warden only)" })
+  @Roles(ROLES.WARDEN, ROLES.SUPER_ADMIN, ROLES.CAMPUS_ADMIN)
+  @ApiOperation({ summary: "Get all outpass requests across the campus (Warden / Super Admin)" })
   async getAdminRequests(): Promise<ApiResponseDto<OutpassResDto[]>> {
     const data = await this.outpassService.getAdminRequests();
     return ApiResponseDto.success(data, "Success");
@@ -63,8 +65,8 @@ export class OutpassController {
   }
 
   @Patch(":id/review")
-  @Roles(ROLES.CAMPUS_ADMIN, ROLES.SUPER_ADMIN)
-  @ApiOperation({ summary: "Approve or reject an outpass request (Admin/Warden only)" })
+  @Roles(ROLES.WARDEN, ROLES.SUPER_ADMIN, ROLES.CAMPUS_ADMIN)
+  @ApiOperation({ summary: "Approve or reject an outpass request (Warden / Super Admin)" })
   async review(
     @CurrentUser() user: JwtPayload,
     @Param("id") id: string,
@@ -75,7 +77,7 @@ export class OutpassController {
   }
 
   @Post("gate-scan")
-  @Roles(ROLES.CAMPUS_ADMIN, ROLES.SUPER_ADMIN, ROLES.STUDENT)
+  @Roles(ROLES.WARDEN, ROLES.SUPER_ADMIN, ROLES.CAMPUS_ADMIN, ROLES.STUDENT)
   @ApiOperation({ summary: "Scan student QR code at gate for exit/entry with automated parent SMS alert" })
   async gateScan(
     @CurrentUser() user: JwtPayload,

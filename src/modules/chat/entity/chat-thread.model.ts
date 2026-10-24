@@ -16,6 +16,12 @@ export class ChatThread extends BaseCamelCase {
   })
   type: ChatThreadType;
 
+  @Column({ type: "varchar", length: 255, nullable: true })
+  name: string | null;
+
+  @Column({ type: "varchar", length: 255, nullable: true })
+  photoKey: string | null;
+
   @Column({ type: "varchar", length: 500, nullable: true })
   lastMessageText: string | null;
 

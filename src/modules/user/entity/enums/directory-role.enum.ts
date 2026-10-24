@@ -2,5 +2,7 @@ export enum DirectoryRole {
   STUDENT = "STUDENT",
   FACULTY = "FACULTY",
   ALUMNI = "ALUMNI",
+  WARDEN = "WARDEN",
+  SUPER_ADMIN = "SUPER_ADMIN",
   CAMPUS_ADMIN = "CAMPUS_ADMIN",
 }

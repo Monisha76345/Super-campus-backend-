@@ -102,7 +102,7 @@ function validateRow(
 ): DirectoryCsvRow | string {
   const role = mapRole(read("role"));
   if (!role) {
-    return "Role must be STUDENT, FACULTY, ALUMNI, or CAMPUS_ADMIN";
+    return "Role must be STUDENT, FACULTY, ALUMNI, WARDEN, or SUPER_ADMIN";
   }
   const hosteliteRaw = read("isHostelite");
   const hostelite = hosteliteRaw ? parseHostelite(hosteliteRaw) : false;
@@ -156,8 +156,11 @@ function validateRow(
 
 function mapRole(raw: string): DirectoryRole | null {
   const value = raw.trim().toUpperCase().replace(/[\s-]+/g, "_");
-  if (value === "ADMIN") {
-    return DirectoryRole.CAMPUS_ADMIN;
+  if (value === "ADMIN" || value === "SUPER_ADMIN" || value === "SUPERADMIN") {
+    return DirectoryRole.SUPER_ADMIN;
+  }
+  if (value === "WARDEN") {
+    return DirectoryRole.WARDEN;
   }
   if (!DIRECTORY_ROLES.includes(value as Role)) {
     return null;

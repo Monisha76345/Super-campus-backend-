@@ -18,6 +18,13 @@ export interface ActivationClaim {
   email: string;
 }
 
+export interface ResetPasswordClaim {
+  tenantId: string;
+  directoryId: string;
+  userId: string;
+  email: string;
+}
+
 @Injectable()
 export class OtpService {
   constructor(private readonly redis: RedisService) {}
@@ -65,11 +72,30 @@ export class OtpService {
     return claim;
   }
 
+  async saveResetPassword(claim: ResetPasswordClaim): Promise<string> {
+    const token = randomBytes(32).toString("hex");
+    await this.redis.set(this.resetKey(token), claim, TOKEN_TTL_SECONDS);
+    return token;
+  }
+
+  async takeResetPassword(token: string): Promise<ResetPasswordClaim | null> {
+    const claim = await this.redis.get<ResetPasswordClaim>(this.resetKey(token));
+    if (!claim) {
+      return null;
+    }
+    await this.redis.del(this.resetKey(token));
+    return claim;
+  }
+
   private otpKey(key: string): string {
     return `otp:${key}`;
   }
 
   private activationKey(token: string): string {
     return `activate:${token}`;
+  }
+
+  private resetKey(token: string): string {
+    return `reset:${token}`;
   }
 }

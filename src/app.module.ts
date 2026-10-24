@@ -20,6 +20,8 @@ import { ProjectModule } from "./modules/project/project.module";
 import { ChatModule } from "./modules/chat/chat.module";
 import { MarketplaceModule } from "./modules/marketplace/marketplace.module";
 import { ConnectModule } from "./modules/connect/connect.module";
+import { CommunityModule } from "./modules/community/community.module";
+import { SportsModule } from "./modules/sports/sports.module";
 
 @Module({
   imports: [
@@ -39,6 +41,8 @@ import { ConnectModule } from "./modules/connect/connect.module";
     ChatModule,
     MarketplaceModule,
     ConnectModule,
+    CommunityModule,
+    SportsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },

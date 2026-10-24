@@ -17,6 +17,12 @@ export class ChatMessageResDto {
   @ApiProperty()
   senderUsn: string | null;
 
+  @ApiProperty({ nullable: true })
+  senderPhotoKey?: string | null;
+
+  @ApiProperty({ nullable: true })
+  senderInitials?: string | null;
+
   @ApiProperty()
   content: string;
 

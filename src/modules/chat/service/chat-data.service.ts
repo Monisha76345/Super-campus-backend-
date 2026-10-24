@@ -32,6 +32,10 @@ export class ChatDataService {
     return (await this.repo(namespace)).saveParticipant(row);
   }
 
+  async saveParticipants(namespace: string, rows: ChatParticipant[]): Promise<ChatParticipant[]> {
+    return (await this.repo(namespace)).saveParticipants(rows);
+  }
+
   async saveMessage(namespace: string, row: ChatMessage): Promise<ChatMessage> {
     return (await this.repo(namespace)).saveMessage(row);
   }
@@ -50,6 +54,10 @@ export class ChatDataService {
 
   async getParticipants(namespace: string, threadId: string): Promise<ChatParticipant[]> {
     return (await this.repo(namespace)).getParticipants(threadId);
+  }
+
+  async removeParticipant(namespace: string, threadId: string, userId: string): Promise<void> {
+    return (await this.repo(namespace)).removeParticipant(threadId, userId);
   }
 
   async findDirectoryUserById(namespace: string, userId: string): Promise<{ directory: CampusDirectory; user: UserAccount; photoKey: string | null } | null> {
