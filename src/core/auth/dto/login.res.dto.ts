@@ -27,4 +27,7 @@ export class LoginResDto {
 
   @ApiProperty()
   changePasswordRequired: boolean;
+
+  @ApiProperty({ example: "dark", description: "Saved theme preference for this user account" })
+  theme: string;
 }

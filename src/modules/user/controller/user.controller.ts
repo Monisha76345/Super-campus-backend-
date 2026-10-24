@@ -11,6 +11,7 @@ import { SetHosteliteReqDto } from "../dto/request/set-hostelite.req.dto";
 import { DirectoryResDto } from "../dto/response/directory.res.dto";
 import { ImportBatchResDto } from "../dto/response/import-batch.res.dto";
 import { PendingAlumniPageResDto } from "../dto/response/pending-alumni.res.dto";
+import { UpdateThemeReqDto } from "../dto/request/update-theme.req.dto";
 import { UserService } from "../service/user.service";
 
 @ApiTags("Users")
@@ -104,5 +105,15 @@ export class UserController {
   ): Promise<ApiResponseDto<DirectoryResDto>> {
     const result = await this.userService.rejectAlumni(user.sub, usn);
     return ApiResponseDto.success(result, "Success");
+  }
+
+  @Patch("theme")
+  @ApiOperation({ summary: "Update signed-in user's theme preference in the user table" })
+  async updateTheme(
+    @CurrentUser() user: JwtPayload,
+    @Body() body: UpdateThemeReqDto,
+  ): Promise<ApiResponseDto<{ theme: string }>> {
+    const result = await this.userService.updateTheme(user.sub, body.theme);
+    return ApiResponseDto.success(result, "Theme updated successfully");
   }
 }

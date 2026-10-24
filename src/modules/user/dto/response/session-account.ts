@@ -10,4 +10,5 @@ export interface SessionAccount {
   tenantId: string;
   hostelite: boolean;
   changePasswordRequired: boolean;
+  theme: string;
 }

@@ -4,9 +4,9 @@ import { JwtService } from "@nestjs/jwt";
 import { LoginReqDto } from "./dto/login.req.dto";
 import { LoginResDto } from "./dto/login.res.dto";
 import { ActivationTokenResDto } from "src/modules/user/dto/response/activation-token.res.dto";
-import { ResetTokenResDto } from "./dto/reset-token.res.dto";
 import { DirectoryResDto } from "src/modules/user/dto/response/directory.res.dto";
 import { OtpSentResDto } from "src/modules/user/dto/response/otp-sent.res.dto";
+import { ResetTokenResDto } from "./dto/reset-token.res.dto";
 import { SessionAccount } from "src/modules/user/dto/response/session-account";
 import { UserService } from "src/modules/user/service/user.service";
 import { TenantContextService } from "../tenant/tenant-context.service";
@@ -73,16 +73,16 @@ export class AuthService {
     return this.issue(account);
   }
 
-  requestForgotPasswordOtp(email: string, tenantId?: string): Promise<OtpSentResDto> {
-    return this.users.requestForgotPasswordOtp(email, tenantId);
+  requestPasswordReset(email: string): Promise<OtpSentResDto> {
+    return this.users.requestPasswordReset(email);
   }
 
-  verifyForgotPasswordOtp(email: string, otp: string, tenantId?: string): Promise<ResetTokenResDto> {
-    return this.users.verifyForgotPasswordOtp(email, otp, tenantId);
+  async verifyPasswordReset(email: string, otp: string): Promise<ResetTokenResDto> {
+    return this.users.verifyPasswordReset(email, otp);
   }
 
-  async resetPasswordWithToken(resetToken: string, password: string): Promise<LoginResDto> {
-    const account = await this.users.resetPasswordWithToken(resetToken, password);
+  async completePasswordReset(resetToken: string, password: string): Promise<LoginResDto> {
+    const account = await this.users.completePasswordReset(resetToken, password);
     return this.issue(account);
   }
 
@@ -128,6 +128,7 @@ export class AuthService {
       campusName: this.campusName(account.tenantId),
       hostelite: account.hostelite,
       changePasswordRequired: account.changePasswordRequired,
+      theme: account.theme || "dark",
     };
   }
 
@@ -160,6 +161,7 @@ export class AuthService {
       campusName: this.campusName(tenantId),
       hostelite: false,
       changePasswordRequired: false,
+      theme: "dark",
     };
   }
 

@@ -19,6 +19,9 @@ export class UserAccount extends BaseCamelCase {
   @Column({ type: "enum", enum: AccountStatus, default: AccountStatus.ACTIVE })
   status: AccountStatus;
 
+  @Column({ type: "varchar", length: 20, default: "dark" })
+  theme: string;
+
   @Column({ type: "boolean", default: false })
   changePasswordRequired: boolean;
 

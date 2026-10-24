@@ -18,10 +18,10 @@ export interface ActivationClaim {
   email: string;
 }
 
-export interface ResetPasswordClaim {
+export interface PasswordResetClaim {
   tenantId: string;
-  directoryId: string;
   userId: string;
+  directoryId: string;
   email: string;
 }
 
@@ -72,14 +72,14 @@ export class OtpService {
     return claim;
   }
 
-  async saveResetPassword(claim: ResetPasswordClaim): Promise<string> {
+  async savePasswordReset(claim: PasswordResetClaim): Promise<string> {
     const token = randomBytes(32).toString("hex");
     await this.redis.set(this.resetKey(token), claim, TOKEN_TTL_SECONDS);
     return token;
   }
 
-  async takeResetPassword(token: string): Promise<ResetPasswordClaim | null> {
-    const claim = await this.redis.get<ResetPasswordClaim>(this.resetKey(token));
+  async takePasswordReset(token: string): Promise<PasswordResetClaim | null> {
+    const claim = await this.redis.get<PasswordResetClaim>(this.resetKey(token));
     if (!claim) {
       return null;
     }

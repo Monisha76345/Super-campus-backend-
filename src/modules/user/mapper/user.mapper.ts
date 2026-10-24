@@ -44,6 +44,7 @@ export class UserMapper {
       tenantId,
       hostelite: directory.role === DirectoryRole.STUDENT && directory.isHostelite,
       changePasswordRequired: user.changePasswordRequired,
+      theme: user.theme || 'dark',
     };
   }
 }

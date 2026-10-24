@@ -1,20 +1,13 @@
-import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { IsEmail, IsNotEmpty, IsOptional, IsString, Length } from "class-validator";
+import { ApiProperty } from "@nestjs/swagger";
+import { IsEmail, IsString, Length } from "class-validator";
 
 export class ForgotPasswordVerifyReqDto {
-  @ApiProperty({ example: "student@nmit.ac.in", description: "Registered college email" })
-  @IsNotEmpty()
+  @ApiProperty({ example: "1nt21cs001@nmit.ac.in", description: "Registered college email" })
   @IsEmail()
   email: string;
 
   @ApiProperty({ example: "123456", description: "6-digit OTP code" })
-  @IsNotEmpty()
   @IsString()
   @Length(6, 6)
   otp: string;
-
-  @ApiPropertyOptional({ example: "nmit", description: "Campus/tenant id" })
-  @IsOptional()
-  @IsString()
-  tenantId?: string;
 }
