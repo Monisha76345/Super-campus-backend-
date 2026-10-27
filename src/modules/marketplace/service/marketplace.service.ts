@@ -32,14 +32,27 @@ export class MarketplaceService {
   ) {}
 
   private checkIsAdmin(user: JwtPayload): boolean {
-    const roles = user.roles || [];
-    return roles.some(
-      (r) =>
+    const roles: string[] = Array.isArray(user.roles)
+      ? [...user.roles]
+      : typeof (user as any).role === "string"
+        ? [(user as any).role]
+        : [];
+    if (typeof (user as any).role === "string" && !roles.includes((user as any).role)) {
+      roles.push((user as any).role);
+    }
+    return roles.some((r) => {
+      const lower = String(r).toLowerCase().trim();
+      return (
+        lower === "admin" ||
+        lower === "campus_admin" ||
+        lower === "campus-admin" ||
+        lower === "superadmin" ||
+        lower === "super_admin" ||
+        lower === "warden" ||
         r === ROLES.CAMPUS_ADMIN ||
-        r === ROLES.SUPER_ADMIN ||
-        r === "admin" ||
-        r === "CAMPUS_ADMIN",
-    );
+        r === ROLES.SUPER_ADMIN
+      );
+    });
   }
 
   async createItem(
@@ -66,6 +79,8 @@ export class MarketplaceService {
       user.email?.split("@")[0] ||
       "Campus Member";
     item.sellerRole = isAdmin ? "CAMPUS_ADMIN" : "STUDENT";
+    item.contactPhone = dto.contactPhone?.trim() || null;
+    item.contactEmail = dto.contactEmail?.trim() || user.email || null;
     item.likeCount = 0;
     item.createdBy = user.sub;
     item.updatedBy = user.sub;
@@ -96,6 +111,7 @@ export class MarketplaceService {
       category: query.category,
       condition: query.condition,
       search: query.search,
+      sellerRole: query.sellerRole,
     });
 
     const itemIds = items.map((i) => i.id);

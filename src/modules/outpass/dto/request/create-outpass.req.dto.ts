@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { IsDateString, IsNotEmpty, IsOptional, IsString, MaxLength } from "class-validator";
+import { IsDateString, IsEnum, IsNotEmpty, IsOptional, IsString, MaxLength } from "class-validator";
+import { PassType } from "../../entity/enums/pass-type.enum";
 
 export class CreateOutpassReqDto {
   @ApiProperty({ description: "Destination location", example: "Home visit" })
@@ -34,4 +35,9 @@ export class CreateOutpassReqDto {
   @IsString()
   @MaxLength(25)
   parentPhone?: string;
+
+  @ApiPropertyOptional({ enum: PassType, description: "Pass type: OUTPASS (same day before 10 PM) or LEAVE", example: PassType.OUTPASS })
+  @IsOptional()
+  @IsEnum(PassType)
+  passType?: PassType;
 }

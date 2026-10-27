@@ -54,4 +54,14 @@ export class CreateMarketplaceItemReqDto {
   @IsArray()
   @IsString({ each: true })
   images?: string[];
+
+  @ApiPropertyOptional({ example: "+91 9876543210", description: "Seller contact phone or WhatsApp" })
+  @IsOptional()
+  @IsString()
+  contactPhone?: string;
+
+  @ApiPropertyOptional({ example: "student@campus.edu", description: "Seller contact email" })
+  @IsOptional()
+  @IsString()
+  contactEmail?: string;
 }

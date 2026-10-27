@@ -24,8 +24,10 @@ export class CommunityDataService {
     namespace: string,
     limit: number,
     offset: number,
+    tab?: string,
+    currentUserId?: string,
   ): Promise<CommunityPost[]> {
-    return (await this.repo(namespace)).findFeedPosts(namespace, limit, offset);
+    return (await this.repo(namespace)).findFeedPosts(namespace, limit, offset, tab, currentUserId);
   }
 
   async findMySubmissions(

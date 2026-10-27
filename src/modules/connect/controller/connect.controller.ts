@@ -44,9 +44,29 @@ export class ConnectController {
 
   @Get("clubs")
   @ApiOperation({ summary: "List active campus clubs" })
-  async getClubs(): Promise<ApiResponseDto<CampusClubResDto[]>> {
-    const list = await this.connectService.getClubs();
+  async getClubs(@CurrentUser() user?: JwtPayload): Promise<ApiResponseDto<CampusClubResDto[]>> {
+    const list = await this.connectService.getClubs(user?.sub);
     return ApiResponseDto.success(list, "Clubs retrieved");
+  }
+
+  @Get("clubs/:id")
+  @ApiOperation({ summary: "Get detailed profile and members of a campus club" })
+  async getClubDetails(
+    @Param("id") id: string,
+    @CurrentUser() user?: JwtPayload,
+  ): Promise<ApiResponseDto<CampusClubResDto>> {
+    const club = await this.connectService.getClubDetails(id, user?.sub);
+    return ApiResponseDto.success(club, "Club details retrieved");
+  }
+
+  @Post("clubs/:id/join")
+  @ApiOperation({ summary: "Join or leave a campus club" })
+  async toggleJoinClub(
+    @Param("id") id: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<ApiResponseDto<CampusClubResDto>> {
+    const updated = await this.connectService.toggleJoinClub(id, user);
+    return ApiResponseDto.success(updated, "Club membership updated");
   }
 
   @Get("opportunities")

@@ -9,10 +9,13 @@ import { randomBytes } from "crypto";
 import { v4 as uuidv4 } from "uuid";
 import {
   AddTeammateDto,
+  CallOffDayDto,
   CancelBookingDto,
   CreateBookingDto,
   CreateFacilityDto,
   QueryFacilitiesDto,
+  ReopenDayDto,
+  UpdateFacilityTimingDto,
 } from "../dto/sports.dto";
 import { BookingStatus, PlayerRole } from "../entity/enums/booking-status.enum";
 import { SportsBooking } from "../entity/sports-booking.model";
@@ -25,11 +28,13 @@ export interface SlotAvailability {
   startTime: string; // "06:00:00"
   endTime: string;   // "07:00:00"
   status: "AVAILABLE" | "BOOKED" | "BLOCKED" | "PAST";
+  blockedReason?: string;
   bookingId?: string;
   isOpenGame?: boolean;
   currentPlayers?: number;
   maxPlayers?: number;
 }
+
 
 @Injectable()
 export class SportsService {
@@ -78,10 +83,23 @@ export class SportsService {
       bookingMap.set(timeKey, b);
     }
 
-    const closureMap = new Set<string>();
-    for (const c of closures) {
-      closureMap.add(c.startTime.slice(0, 5));
-    }
+    const isSlotBlockedByClosure = (startTime: string, endTime: string): string | null => {
+      const s = startTime.slice(0, 5);
+      const e = endTime.slice(0, 5);
+      for (const c of closures) {
+        const cStart = c.startTime.slice(0, 5);
+        const cEnd = c.endTime.slice(0, 5);
+        // Full day closure
+        if (cStart === "00:00" && cEnd >= "22:00") {
+          return c.reason || "Court bookings called off by administration";
+        }
+        // Overlapping slot closure
+        if (s >= cStart && s < cEnd) {
+          return c.reason || "Time slot blocked by administration";
+        }
+      }
+      return null;
+    };
 
     // Determine current time cutoff if date is today
     const now = new Date();
@@ -111,8 +129,10 @@ export class SportsService {
       let status: SlotAvailability["status"] = "AVAILABLE";
       let bookingMeta: Partial<SlotAvailability> = {};
 
-      if (closureMap.has(timeKey)) {
+      const blockedReason = isSlotBlockedByClosure(startTimeStr, endTimeStr);
+      if (blockedReason) {
         status = "BLOCKED";
+        bookingMeta = { blockedReason };
       } else if (bookingMap.has(timeKey)) {
         const bk = bookingMap.get(timeKey)!;
         status = "BOOKED";
@@ -147,6 +167,21 @@ export class SportsService {
   ): Promise<SportsBooking & { players: SportsBookingPlayer[] }> {
     const facility = await this.getFacilityById(namespace, dto.facilityId);
 
+    // 0. Enforce 2-Day Advance Booking Limit (can only book up to 2 days)
+    const today = new Date();
+    const todayStr = today.toISOString().slice(0, 10);
+    const bookingDateObj = new Date(dto.bookingDate + "T00:00:00Z");
+    const todayObj = new Date(todayStr + "T00:00:00Z");
+    const diffDays = Math.round((bookingDateObj.getTime() - todayObj.getTime()) / (1000 * 60 * 60 * 24));
+    if (diffDays < 0) {
+      throw new BadRequestException("Cannot book slots in the past.");
+    }
+    if (diffDays > 1) {
+      throw new BadRequestException(
+        "Booking limit: Courts can only be booked up to 2 days in advance (Today and Tomorrow).",
+      );
+    }
+
     // 1. Normalize time (e.g. "18:00" -> "18:00:00")
     const startTime = dto.startTime.length === 5 ? `${dto.startTime}:00` : dto.startTime;
     let endTime = dto.endTime;
@@ -156,6 +191,26 @@ export class SportsService {
       endTime = `${String(Math.floor(endTotal / 60)).padStart(2, "0")}:${String(endTotal % 60).padStart(2, "0")}:00`;
     } else if (endTime.length === 5) {
       endTime = `${endTime}:00`;
+    }
+
+    // 1.1 Check facility closure / call-off on this date
+    const closures = await this.dataService.findClosuresForFacilityDate(
+      namespace,
+      dto.facilityId,
+      dto.bookingDate,
+    );
+    for (const c of closures) {
+      const cStart = c.startTime.slice(0, 5);
+      const cEnd = c.endTime.slice(0, 5);
+      const startKey = startTime.slice(0, 5);
+      if (
+        (cStart === "00:00" && cEnd >= "22:00") ||
+        (startKey >= cStart && startKey < cEnd)
+      ) {
+        throw new BadRequestException(
+          `Court bookings on ${dto.bookingDate} have been called off by administration: ${c.reason || "No bookings permitted."}`,
+        );
+      }
     }
 
     // 2. Prevent Double-Booking Conflict
@@ -474,4 +529,106 @@ export class SportsService {
 
     return this.dataService.saveFacility(namespace, facility);
   }
+
+  // ---------------- Admin: Call Off Day ----------------
+  async callOffDay(
+    namespace: string,
+    dto: CallOffDayDto,
+    actorId: string,
+  ): Promise<{ message: string; closuresCount: number }> {
+    const facilities =
+      dto.facilityId === "ALL"
+        ? await this.dataService.findFacilities(namespace)
+        : [await this.getFacilityById(namespace, dto.facilityId)];
+
+    if (!facilities.length) {
+      throw new NotFoundException("No facilities found to call off.");
+    }
+
+    const startTime = dto.startTime
+      ? dto.startTime.length === 5 ? `${dto.startTime}:00` : dto.startTime
+      : "00:00:00";
+    const endTime = dto.endTime
+      ? dto.endTime.length === 5 ? `${dto.endTime}:00` : dto.endTime
+      : "23:59:59";
+
+    // Delete existing closure for this date first to avoid duplicates
+    await this.dataService.deleteClosuresForFacilityDate(
+      namespace,
+      dto.facilityId,
+      dto.closureDate,
+    );
+
+    for (const fac of facilities) {
+      const closure = new SportsFacilityClosure();
+      closure.id = uuidv4();
+      closure.campusId = namespace;
+      closure.facilityId = fac.id;
+      closure.closureDate = dto.closureDate;
+      closure.startTime = startTime;
+      closure.endTime = endTime;
+      closure.reason = dto.reason;
+      closure.createdBy = actorId;
+      closure.updatedBy = actorId;
+
+      await this.dataService.saveClosure(namespace, closure);
+    }
+
+    return {
+      message: `Bookings for ${dto.closureDate} called off successfully (${facilities.length} court(s)).`,
+      closuresCount: facilities.length,
+    };
+  }
+
+  // ---------------- Admin: Reopen Day ----------------
+  async reopenDay(
+    namespace: string,
+    dto: ReopenDayDto,
+    actorId: string,
+  ): Promise<{ message: string; reopenedCount: number }> {
+    const count = await this.dataService.deleteClosuresForFacilityDate(
+      namespace,
+      dto.facilityId,
+      dto.closureDate,
+    );
+    return {
+      message: `Bookings resumed successfully for ${dto.closureDate}.`,
+      reopenedCount: count,
+    };
+  }
+
+  // ---------------- Admin: Get Closures ----------------
+  async getClosures(
+    namespace: string,
+    facilityId?: string,
+    closureDate?: string,
+  ): Promise<SportsFacilityClosure[]> {
+    return this.dataService.findClosures(namespace, facilityId, closureDate);
+  }
+
+  // ---------------- Admin: Update Facility Timing ----------------
+  async updateFacilityTiming(
+    namespace: string,
+    facilityId: string,
+    dto: UpdateFacilityTimingDto,
+    actorId: string,
+  ): Promise<SportsFacility> {
+    const facility = await this.getFacilityById(namespace, facilityId);
+
+    if (dto.openingTime) {
+      facility.openingTime =
+        dto.openingTime.length === 5 ? `${dto.openingTime}:00` : dto.openingTime;
+    }
+    if (dto.closingTime) {
+      facility.closingTime =
+        dto.closingTime.length === 5 ? `${dto.closingTime}:00` : dto.closingTime;
+    }
+    if (dto.slotDurationMinutes) {
+      facility.slotDurationMinutes = dto.slotDurationMinutes;
+    }
+    facility.updatedBy = actorId;
+
+    return this.dataService.saveFacility(namespace, facility);
+  }
 }
+

@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Param,
+  Patch,
   Post,
   Query,
 } from "@nestjs/common";
@@ -11,12 +12,16 @@ import { CurrentUser, JwtPayload } from "src/core/common/decorators/current-user
 import { ApiResponseDto } from "src/core/common/dto/api-response.dto";
 import {
   AddTeammateDto,
+  CallOffDayDto,
   CancelBookingDto,
   CreateBookingDto,
   CreateFacilityDto,
   JoinWithCodeDto,
+  QueryClosuresDto,
   QueryFacilitiesDto,
   QuerySlotsDto,
+  ReopenDayDto,
+  UpdateFacilityTimingDto,
 } from "../dto/sports.dto";
 import { SportsService } from "../service/sports.service";
 
@@ -166,4 +171,66 @@ export class SportsController {
     );
     return ApiResponseDto.success(facility, "Sports facility created successfully");
   }
+
+  @Post("admin/call-off")
+  @ApiOperation({ summary: "Admin: Call off court bookings for a day (e.g. rain, maintenance)" })
+  async callOffDay(
+    @CurrentUser() user: JwtPayload,
+    @Body() body: CallOffDayDto,
+  ) {
+    const res = await this.sportsService.callOffDay(
+      user.tenantId,
+      body,
+      user.sub,
+    );
+    return ApiResponseDto.success(res, res.message);
+  }
+
+  @Post("admin/reopen")
+  @ApiOperation({ summary: "Admin: Reopen court bookings for a previously called-off day" })
+  async reopenDay(
+    @CurrentUser() user: JwtPayload,
+    @Body() body: ReopenDayDto,
+  ) {
+    const res = await this.sportsService.reopenDay(
+      user.tenantId,
+      body,
+      user.sub,
+    );
+    return ApiResponseDto.success(res, res.message);
+  }
+
+  @Get("admin/closures")
+  @ApiOperation({ summary: "Admin: List current facility closures & called-off dates" })
+  async getClosures(
+    @CurrentUser() user: JwtPayload,
+    @Query() query: QueryClosuresDto,
+  ) {
+    const closures = await this.sportsService.getClosures(
+      user.tenantId,
+      query.facilityId,
+      query.closureDate,
+    );
+    return ApiResponseDto.success(closures, "Closures retrieved successfully");
+  }
+
+  @Patch("admin/facilities/:id/timing")
+  @ApiOperation({ summary: "Admin: Update court operational timings or add extra slot timings" })
+  async updateFacilityTiming(
+    @CurrentUser() user: JwtPayload,
+    @Param("id") id: string,
+    @Body() body: UpdateFacilityTimingDto,
+  ) {
+    const updated = await this.sportsService.updateFacilityTiming(
+      user.tenantId,
+      id,
+      body,
+      user.sub,
+    );
+    return ApiResponseDto.success(
+      updated,
+      "Facility timings updated successfully! New slots are live.",
+    );
+  }
 }
+

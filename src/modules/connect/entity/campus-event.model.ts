@@ -30,6 +30,9 @@ export class CampusEvent {
   @Column({ name: "banner_key", type: "varchar", length: 100, nullable: true })
   bannerKey: string | null;
 
+  @Column({ name: "google_forms_url", type: "varchar", length: 500, nullable: true })
+  googleFormsUrl: string | null;
+
   @Column({ type: "enum", enum: EventStatus, default: EventStatus.UPCOMING })
   status: EventStatus;
 

@@ -182,3 +182,76 @@ export class CreateFacilityDto {
   @IsInt()
   maxPlayers?: number;
 }
+
+export class CallOffDayDto {
+  @ApiProperty({ example: "fac-badminton-1", description: "Facility ID or 'ALL' for campus-wide call off" })
+  @IsNotEmpty()
+  @IsString()
+  facilityId: string;
+
+  @ApiProperty({ example: "2026-10-28", description: "Date to call off (YYYY-MM-DD)" })
+  @IsNotEmpty()
+  @IsString()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: "closureDate must be in YYYY-MM-DD format" })
+  closureDate: string;
+
+  @ApiPropertyOptional({ example: "06:00:00" })
+  @IsOptional()
+  @IsString()
+  startTime?: string;
+
+  @ApiPropertyOptional({ example: "23:59:59" })
+  @IsOptional()
+  @IsString()
+  endTime?: string;
+
+  @ApiProperty({ example: "Rain / Maintenance / Tournament" })
+  @IsNotEmpty()
+  @IsString()
+  reason: string;
+}
+
+export class ReopenDayDto {
+  @ApiProperty({ example: "fac-badminton-1", description: "Facility ID or 'ALL' to reopen all" })
+  @IsNotEmpty()
+  @IsString()
+  facilityId: string;
+
+  @ApiProperty({ example: "2026-10-28", description: "Date to reopen (YYYY-MM-DD)" })
+  @IsNotEmpty()
+  @IsString()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: "closureDate must be in YYYY-MM-DD format" })
+  closureDate: string;
+}
+
+export class UpdateFacilityTimingDto {
+  @ApiPropertyOptional({ example: "05:00:00", description: "Updated opening time" })
+  @IsOptional()
+  @IsString()
+  openingTime?: string;
+
+  @ApiPropertyOptional({ example: "23:00:00", description: "Updated closing time (e.g. adding extra late slot)" })
+  @IsOptional()
+  @IsString()
+  closingTime?: string;
+
+  @ApiPropertyOptional({ example: 60, description: "Slot duration in minutes" })
+  @IsOptional()
+  @IsInt()
+  @Min(15)
+  @Max(240)
+  slotDurationMinutes?: number;
+}
+
+export class QueryClosuresDto {
+  @ApiPropertyOptional({ example: "fac-badminton-1" })
+  @IsOptional()
+  @IsString()
+  facilityId?: string;
+
+  @ApiPropertyOptional({ example: "2026-10-28" })
+  @IsOptional()
+  @IsString()
+  closureDate?: string;
+}
+

@@ -15,6 +15,8 @@ export class MarketplaceMapper {
       sellerId: row.sellerId,
       sellerName: row.sellerName,
       sellerRole: row.sellerRole,
+      contactPhone: row.contactPhone ?? null,
+      contactEmail: row.contactEmail ?? null,
       status: row.status,
       rejectionReason: row.rejectionReason ?? null,
       approvedBy: row.approvedBy ?? null,

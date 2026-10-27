@@ -25,6 +25,8 @@ CREATE TABLE IF NOT EXISTS `marketplace_items` (
   `sellerId` varchar(36) NOT NULL,
   `sellerName` varchar(255) NOT NULL,
   `sellerRole` varchar(64) NOT NULL DEFAULT 'STUDENT',
+  `contactPhone` varchar(50) NULL,
+  `contactEmail` varchar(255) NULL,
   `status` enum('PENDING_APPROVAL','APPROVED','REJECTED','SOLD') NOT NULL DEFAULT 'PENDING_APPROVAL',
   `rejectionReason` varchar(255) NULL,
   `approvedBy` varchar(36) NULL,

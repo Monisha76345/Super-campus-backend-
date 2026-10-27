@@ -1,4 +1,5 @@
 import { OutpassResDto } from "../dto/response/outpass.res.dto";
+import { PassType } from "../entity/enums/pass-type.enum";
 import { OutpassRequest } from "../entity/outpass.model";
 
 export class OutpassMapper {
@@ -10,6 +11,7 @@ export class OutpassMapper {
       usn: row.usn ?? null,
       roomNumber: row.roomNumber ?? null,
       parentPhone: row.parentPhone ?? null,
+      passType: row.passType || PassType.OUTPASS,
       destination: row.destination,
       reason: row.reason,
       departureTime: row.departureTime instanceof Date ? row.departureTime.toISOString() : new Date(row.departureTime).toISOString(),

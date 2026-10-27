@@ -31,6 +31,7 @@ export class MarketplaceDataService {
       category?: string;
       condition?: MarketplaceCondition;
       search?: string;
+      sellerRole?: string;
     },
   ): Promise<MarketplaceItem[]> {
     return (await this.repo(namespace)).findAll(options);

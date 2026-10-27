@@ -23,6 +23,7 @@ export class MarketplaceRepository {
     category?: string;
     condition?: MarketplaceCondition;
     search?: string;
+    sellerRole?: string;
   }): Promise<MarketplaceItem[]> {
     const qb = this.manager
       .getRepository(MarketplaceItem)
@@ -39,6 +40,17 @@ export class MarketplaceRepository {
 
     if (options?.condition) {
       qb.andWhere("item.condition = :condition", { condition: options.condition });
+    }
+
+    if (options?.sellerRole) {
+      const roleUpper = options.sellerRole.toUpperCase();
+      if (roleUpper === "CAMPUS_ADMIN" || roleUpper === "ADMIN") {
+        qb.andWhere(
+          "(item.sellerRole = 'CAMPUS_ADMIN' OR item.sellerRole = 'ADMIN' OR item.sellerRole = 'admin' OR item.sellerRole = 'campus_admin')"
+        );
+      } else {
+        qb.andWhere("item.sellerRole = :sellerRole", { sellerRole: options.sellerRole });
+      }
     }
 
     if (options?.search && options.search.trim()) {

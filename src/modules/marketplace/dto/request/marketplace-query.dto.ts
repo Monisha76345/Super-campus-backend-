@@ -24,4 +24,9 @@ export class MarketplaceQueryDto {
   @IsOptional()
   @IsEnum(MarketplaceStatus)
   status?: MarketplaceStatus;
+
+  @ApiPropertyOptional({ example: "CAMPUS_ADMIN", description: "Filter by seller role (e.g. CAMPUS_ADMIN)" })
+  @IsOptional()
+  @IsString()
+  sellerRole?: string;
 }

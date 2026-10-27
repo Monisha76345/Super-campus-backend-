@@ -135,4 +135,24 @@ export class SportsDataService {
   ): Promise<SportsFacilityClosure> {
     return (await this.repo(namespace)).saveClosure(closure);
   }
+
+  async findClosures(
+    namespace: string,
+    facilityId?: string,
+    closureDate?: string,
+  ): Promise<SportsFacilityClosure[]> {
+    return (await this.repo(namespace)).findClosures(facilityId, closureDate);
+  }
+
+  async deleteClosuresForFacilityDate(
+    namespace: string,
+    facilityId: string,
+    closureDate: string,
+  ): Promise<number> {
+    return (await this.repo(namespace)).deleteClosuresForFacilityDate(
+      facilityId,
+      closureDate,
+    );
+  }
 }
+
