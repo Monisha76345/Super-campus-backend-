@@ -239,8 +239,9 @@ export class UserService {
       throw new BadRequestException("This account cannot be activated");
     }
     const code = await this.otp.issue(`activate:${loginId}`);
-    const debugOtp = await this.deliver(loginId, code);
-    return { destination: loginId, debugOtp };
+    const targetEmail = directory.collegeEmail || directory.personalEmail || loginId;
+    const debugOtp = await this.deliver(targetEmail, code);
+    return { destination: targetEmail, debugOtp };
   }
 
   async verifyActivation(email: string, otp: string): Promise<ActivationTokenResDto> {
@@ -620,6 +621,10 @@ export class UserService {
     const fallbackDir = await this.data.findDirectoryByCollegeEmail(defaultTenant, loginId);
     if (fallbackDir) {
       return { tenantId: defaultTenant, directory: fallbackDir };
+    }
+    const byUsn = await this.data.findDirectoryByUsn(defaultTenant, loginId.toUpperCase());
+    if (byUsn) {
+      return { tenantId: defaultTenant, directory: byUsn };
     }
     return null;
   }

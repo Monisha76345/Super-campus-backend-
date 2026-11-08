@@ -15,6 +15,7 @@ export class MarketplaceMapper {
       sellerId: row.sellerId,
       sellerName: row.sellerName,
       sellerRole: row.sellerRole,
+      listingType: row.listingType || (row.sellerRole === "CAMPUS_ADMIN" || row.sellerRole === "ADMIN" ? "CAMPUS_STORE" : "BUY_SELL"),
       contactPhone: row.contactPhone ?? null,
       contactEmail: row.contactEmail ?? null,
       status: row.status,

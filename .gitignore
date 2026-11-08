@@ -6,12 +6,16 @@ dist/
 build/
 *.tsbuildinfo
 
-# Environment
+# Environment & secrets
 .env
+.env.*
 .env.local
 .env.*.local
+credentials*
 
-# Local infrastructure data
+# Local uploads & storage
+uploads/
+/uploads
 data/
 
 # IDE
@@ -29,11 +33,11 @@ logs/
 *.log
 npm-debug.log*
 
-# Test
+# Test & scratch scripts
 coverage/
 .nyc_output/
-
-# Misc
 *.pid
 .cache/
-credentials*
+allow-port-3001.bat
+test-start.js
+fix-images.sql

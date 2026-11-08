@@ -24,6 +24,7 @@ export class MarketplaceRepository {
     condition?: MarketplaceCondition;
     search?: string;
     sellerRole?: string;
+    listingType?: string;
   }): Promise<MarketplaceItem[]> {
     const qb = this.manager
       .getRepository(MarketplaceItem)
@@ -32,6 +33,19 @@ export class MarketplaceRepository {
 
     if (options?.status) {
       qb.andWhere("item.status = :status", { status: options.status });
+    }
+
+    if (options?.listingType) {
+      const typeUpper = options.listingType.toUpperCase();
+      if (typeUpper === "CAMPUS_STORE") {
+        qb.andWhere(
+          "(item.listingType = 'CAMPUS_STORE' OR item.sellerRole IN ('CAMPUS_ADMIN', 'ADMIN', 'admin', 'campus_admin'))"
+        );
+      } else if (typeUpper === "BUY_SELL") {
+        qb.andWhere(
+          "(item.listingType = 'BUY_SELL' AND (item.sellerRole NOT IN ('CAMPUS_ADMIN', 'ADMIN', 'admin', 'campus_admin') OR item.sellerRole IS NULL))"
+        );
+      }
     }
 
     if (options?.category && options.category.toLowerCase() !== "all") {

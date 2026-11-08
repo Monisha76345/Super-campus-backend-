@@ -8,6 +8,11 @@ export class UpdateGroupChatReqDto {
   @MaxLength(100)
   name?: string;
 
+  @ApiProperty({ description: "Group profile photo URL or key", required: false })
+  @IsOptional()
+  @IsString()
+  photoKey?: string;
+
   @ApiProperty({
     description: "User IDs to add to the group",
     required: false,

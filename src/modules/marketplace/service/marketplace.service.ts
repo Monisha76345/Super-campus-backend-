@@ -79,6 +79,7 @@ export class MarketplaceService {
       user.email?.split("@")[0] ||
       "Campus Member";
     item.sellerRole = isAdmin ? "CAMPUS_ADMIN" : "STUDENT";
+    item.listingType = dto.listingType || (isAdmin ? "CAMPUS_STORE" : "BUY_SELL");
     item.contactPhone = dto.contactPhone?.trim() || null;
     item.contactEmail = dto.contactEmail?.trim() || user.email || null;
     item.likeCount = 0;
@@ -112,6 +113,7 @@ export class MarketplaceService {
       condition: query.condition,
       search: query.search,
       sellerRole: query.sellerRole,
+      listingType: query.listingType,
     });
 
     const itemIds = items.map((i) => i.id);

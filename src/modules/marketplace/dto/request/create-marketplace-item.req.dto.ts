@@ -64,4 +64,9 @@ export class CreateMarketplaceItemReqDto {
   @IsOptional()
   @IsString()
   contactEmail?: string;
+
+  @ApiPropertyOptional({ example: "BUY_SELL", enum: ["CAMPUS_STORE", "BUY_SELL"] })
+  @IsOptional()
+  @IsString()
+  listingType?: string;
 }

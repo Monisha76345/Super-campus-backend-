@@ -311,6 +311,10 @@ export class SportsService {
 
     return {
       ...savedBooking,
+      facilityName: facility.name,
+      sportType: facility.sportType,
+      venueType: facility.venueType,
+      location: facility.location,
       players: playersList,
     };
   }

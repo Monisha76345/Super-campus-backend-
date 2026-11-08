@@ -1,4 +1,5 @@
 import {
+  ForbiddenException,
   Body,
   Controller,
   Get,
@@ -158,12 +159,26 @@ export class SportsController {
     return ApiResponseDto.success(cancelled, "Booking cancelled successfully");
   }
 
+  private ensureSportsAdmin(user: JwtPayload): void {
+    const roles = (user.roles || []).map((r) => r.toUpperCase());
+    const isAllowed =
+      roles.includes("ADMIN") ||
+      roles.includes("CAMPUS_ADMIN") ||
+      roles.includes("SUPER_ADMIN");
+    if (!isAllowed) {
+      throw new ForbiddenException(
+        "Access denied: Only campus administrators can manage facility timings or call off sports courts."
+      );
+    }
+  }
+
   @Post("admin/facilities")
   @ApiOperation({ summary: "Staff / Sports Admin: Register new court or ground" })
   async createFacility(
     @CurrentUser() user: JwtPayload,
     @Body() body: CreateFacilityDto,
   ) {
+    this.ensureSportsAdmin(user);
     const facility = await this.sportsService.createFacility(
       user.tenantId,
       body,
@@ -178,6 +193,7 @@ export class SportsController {
     @CurrentUser() user: JwtPayload,
     @Body() body: CallOffDayDto,
   ) {
+    this.ensureSportsAdmin(user);
     const res = await this.sportsService.callOffDay(
       user.tenantId,
       body,
@@ -192,6 +208,7 @@ export class SportsController {
     @CurrentUser() user: JwtPayload,
     @Body() body: ReopenDayDto,
   ) {
+    this.ensureSportsAdmin(user);
     const res = await this.sportsService.reopenDay(
       user.tenantId,
       body,
@@ -206,6 +223,7 @@ export class SportsController {
     @CurrentUser() user: JwtPayload,
     @Query() query: QueryClosuresDto,
   ) {
+    this.ensureSportsAdmin(user);
     const closures = await this.sportsService.getClosures(
       user.tenantId,
       query.facilityId,
@@ -221,6 +239,7 @@ export class SportsController {
     @Param("id") id: string,
     @Body() body: UpdateFacilityTimingDto,
   ) {
+    this.ensureSportsAdmin(user);
     const updated = await this.sportsService.updateFacilityTiming(
       user.tenantId,
       id,

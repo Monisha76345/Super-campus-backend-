@@ -9,18 +9,27 @@ import {
 } from "@aws-sdk/client-s3";
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import * as fs from "fs";
+import * as path from "path";
 
 @Injectable()
 export class S3ClientService implements OnModuleInit {
   private readonly logger = new Logger(S3ClientService.name);
   private readonly client: S3Client;
   private readonly bucket: string;
+  private readonly localFallbackDir: string;
+  private isS3Available = false;
 
   constructor(config: ConfigService) {
     const endpointHost = config.get<string>("storage.endpoint") ?? "127.0.0.1";
     const port = config.get<number>("storage.port") ?? 9000;
     const useSSL = config.get<boolean>("storage.useSSL") === true;
     this.bucket = config.get<string>("storage.bucket") ?? "supercampus-storage";
+    this.localFallbackDir = path.resolve(process.cwd(), "uploads");
+    if (!fs.existsSync(this.localFallbackDir)) {
+      fs.mkdirSync(this.localFallbackDir, { recursive: true });
+    }
+
     this.client = new S3Client({
       endpoint: `${useSSL ? "https" : "http"}://${endpointHost}:${port}`,
       region: "us-east-1",
@@ -35,41 +44,111 @@ export class S3ClientService implements OnModuleInit {
   async onModuleInit(): Promise<void> {
     try {
       await this.client.send(new HeadBucketCommand({ Bucket: this.bucket }));
+      this.isS3Available = true;
+      this.logger.log(`Connected to MinIO bucket: ${this.bucket}`);
     } catch {
       try {
         await this.client.send(new CreateBucketCommand({ Bucket: this.bucket }));
+        this.isS3Available = true;
         this.logger.log(`Created MinIO bucket ${this.bucket}`);
       } catch (err) {
-        this.logger.warn(`MinIO bucket check skipped: ${(err as Error).message}`);
+        this.isS3Available = false;
+        this.logger.warn(`MinIO unavailable (${(err as Error).message}). Local filesystem storage fallback active at ${this.localFallbackDir}`);
       }
     }
   }
 
   async uploadBuffer(key: string, body: Buffer, metadata: Record<string, string>): Promise<void> {
-    await this.client.send(
-      new PutObjectCommand({
-        Bucket: this.bucket,
-        Key: key,
-        Body: body,
-        ContentType: metadata["Content-Type"],
-        Metadata: metadata,
+    if (this.isS3Available) {
+      try {
+        await this.client.send(
+          new PutObjectCommand({
+            Bucket: this.bucket,
+            Key: key,
+            Body: body,
+            ContentType: metadata["Content-Type"],
+            Metadata: metadata,
+          }),
+        );
+        return;
+      } catch (err) {
+        this.logger.warn(`MinIO upload failed (${(err as Error).message}), writing to local fallback`);
+        this.isS3Available = false;
+      }
+    }
+
+    // Local filesystem fallback
+    const safeKey = key.replace(/[^a-zA-Z0-9_-]/g, "_");
+    const filePath = path.join(this.localFallbackDir, safeKey);
+    const metaPath = path.join(this.localFallbackDir, `${safeKey}.meta.json`);
+    await fs.promises.writeFile(filePath, body);
+    await fs.promises.writeFile(
+      metaPath,
+      JSON.stringify({
+        mimetype: metadata["Content-Type"] || metadata["x-amz-meta-mimetype"] || "image/jpeg",
+        filename: metadata["x-amz-meta-filename"] || "file",
+        metadata,
       }),
     );
   }
 
-  async downloadFile(key: string) {
-    return this.client.send(new GetObjectCommand({ Bucket: this.bucket, Key: key }));
+  async downloadFile(key: string): Promise<any> {
+    if (this.isS3Available) {
+      try {
+        return await this.client.send(new GetObjectCommand({ Bucket: this.bucket, Key: key }));
+      } catch {
+        // Fallback to local
+      }
+    }
+
+    const safeKey = key.replace(/[^a-zA-Z0-9_-]/g, "_");
+    const filePath = path.join(this.localFallbackDir, safeKey);
+    if (fs.existsSync(filePath)) {
+      return { Body: fs.createReadStream(filePath) };
+    }
+    throw new Error(`Document ${key} not found`);
   }
 
-  async getMetaData(key: string) {
-    const head = await this.client.send(new HeadObjectCommand({ Bucket: this.bucket, Key: key }));
+  async getMetaData(key: string): Promise<{ mimetype: string; filename: string }> {
+    if (this.isS3Available) {
+      try {
+        const head = await this.client.send(new HeadObjectCommand({ Bucket: this.bucket, Key: key }));
+        return {
+          mimetype: head.ContentType || head.Metadata?.["x-amz-meta-mimetype"] || "application/octet-stream",
+          filename: head.Metadata?.["x-amz-meta-filename"] || "file",
+        };
+      } catch {
+        // Fallback to local
+      }
+    }
+
+    const safeKey = key.replace(/[^a-zA-Z0-9_-]/g, "_");
+    const metaPath = path.join(this.localFallbackDir, `${safeKey}.meta.json`);
+    if (fs.existsSync(metaPath)) {
+      const data = JSON.parse(await fs.promises.readFile(metaPath, "utf-8"));
+      return {
+        mimetype: data.mimetype || "application/octet-stream",
+        filename: data.filename || "file",
+      };
+    }
     return {
-      mimetype: head.ContentType || head.Metadata?.["x-amz-meta-mimetype"] || "application/octet-stream",
-      filename: head.Metadata?.["x-amz-meta-filename"] || "file",
+      mimetype: "image/jpeg",
+      filename: "file",
     };
   }
 
   async delete(key: string): Promise<void> {
-    await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
+    if (this.isS3Available) {
+      try {
+        await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
+      } catch {
+        // Continue
+      }
+    }
+    const safeKey = key.replace(/[^a-zA-Z0-9_-]/g, "_");
+    const filePath = path.join(this.localFallbackDir, safeKey);
+    const metaPath = path.join(this.localFallbackDir, `${safeKey}.meta.json`);
+    if (fs.existsSync(filePath)) await fs.promises.unlink(filePath).catch(() => {});
+    if (fs.existsSync(metaPath)) await fs.promises.unlink(metaPath).catch(() => {});
   }
 }

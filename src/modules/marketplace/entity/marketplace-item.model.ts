@@ -47,6 +47,9 @@ export class MarketplaceItem extends BaseCamelCase {
   @Column({ type: "varchar", length: 64 })
   sellerRole: string;
 
+  @Column({ type: "varchar", length: 32, default: "BUY_SELL" })
+  listingType: string;
+
   @Column({ type: "varchar", length: 50, nullable: true })
   contactPhone: string | null;
 

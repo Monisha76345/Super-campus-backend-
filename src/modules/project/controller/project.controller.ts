@@ -14,7 +14,11 @@ import { ApiResponseDto } from "src/core/common/dto/api-response.dto";
 import { CreateProjectReqDto } from "../dto/request/create-project.req.dto";
 import { ProjectQueryDto } from "../dto/request/project-query.dto";
 import { UpdateProjectStatusReqDto } from "../dto/request/update-project-status.req.dto";
-import { ProjectResDto } from "../dto/response/project.res.dto";
+import {
+  ProjectApplicationResDto,
+  ProjectContributionResDto,
+  ProjectResDto,
+} from "../dto/response/project.res.dto";
 import { ProjectService } from "../service/project.service";
 
 @ApiTags("Projects")
@@ -26,7 +30,7 @@ export class ProjectController {
   @Post()
   @ApiOperation({
     summary: "Publish a new campus project",
-    description: "Accepts 3-step project data including required skills and support services.",
+    description: "Accepts 3-step project data including required skills, funding targets, and support services.",
   })
   async createProject(
     @CurrentUser() user: JwtPayload,
@@ -39,7 +43,7 @@ export class ProjectController {
   @Get()
   @ApiOperation({
     summary: "List projects",
-    description: "Filter by status (OPEN, ACTIVE, COMPLETED), category, or search query.",
+    description: "Filter by status, category, domain, supportOffered, supportRequired, or search query.",
   })
   async listProjects(
     @CurrentUser() user: JwtPayload,
@@ -83,6 +87,68 @@ export class ProjectController {
   ): Promise<ApiResponseDto<ProjectResDto>> {
     const result = await this.projectService.updateStatus(user, id, body.status);
     return ApiResponseDto.success(result, "Project status updated successfully");
+  }
+
+  @Post(":id/fund")
+  @ApiOperation({
+    summary: "Fund a project via College Funding or Crowdfunding",
+  })
+  async fundProject(
+    @CurrentUser() user: JwtPayload,
+    @Param("id") id: string,
+    @Body()
+    body: {
+      amount: number;
+      fundingType: "COLLEGE_FUNDING" | "CROWDFUNDING";
+      notes?: string;
+      paymentMethod?: string;
+      orderId?: string;
+    },
+  ): Promise<ApiResponseDto<{ contribution: ProjectContributionResDto; project: ProjectResDto }>> {
+    const result = await this.projectService.fundProject(user, id, body);
+    return ApiResponseDto.success(result, "Contribution verified and recorded successfully");
+  }
+
+  @Post(":id/apply")
+  @ApiOperation({
+    summary: "Apply for a team role or mentorship in a project",
+  })
+  async applyToProject(
+    @CurrentUser() user: JwtPayload,
+    @Param("id") id: string,
+    @Body()
+    body: {
+      roleApplied: string;
+      supportId?: string;
+      message?: string;
+    },
+  ): Promise<ApiResponseDto<ProjectApplicationResDto>> {
+    const result = await this.projectService.applyToProject(user, id, body);
+    return ApiResponseDto.success(result, "Application submitted successfully");
+  }
+
+  @Get(":id/applications")
+  @ApiOperation({
+    summary: "Get applicants for a project",
+  })
+  async getApplications(
+    @CurrentUser() user: JwtPayload,
+    @Param("id") id: string,
+  ): Promise<ApiResponseDto<ProjectApplicationResDto[]>> {
+    const result = await this.projectService.getApplications(user, id);
+    return ApiResponseDto.success(result, "Success");
+  }
+
+  @Get(":id/contributions")
+  @ApiOperation({
+    summary: "Get funding contributions / backers for a project",
+  })
+  async getContributions(
+    @CurrentUser() user: JwtPayload,
+    @Param("id") id: string,
+  ): Promise<ApiResponseDto<ProjectContributionResDto[]>> {
+    const result = await this.projectService.getContributions(user, id);
+    return ApiResponseDto.success(result, "Success");
   }
 
   @Delete(":id")

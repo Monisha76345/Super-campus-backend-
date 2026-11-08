@@ -152,6 +152,7 @@ export class ChatService {
     userId: string,
     name: string,
     memberUserIds: string[],
+    photoKey?: string,
   ): Promise<ChatThreadResDto> {
     const groupName = (name || "").trim();
     if (!groupName) {
@@ -174,7 +175,7 @@ export class ChatService {
     thread.id = threadId;
     thread.type = ChatThreadType.GROUP;
     thread.name = groupName;
-    thread.photoKey = null;
+    thread.photoKey = photoKey || null;
     thread.lastMessageText = null;
     thread.lastMessageAt = new Date();
     thread.lastSenderId = null;
@@ -303,7 +304,7 @@ export class ChatService {
   async updateGroupChat(
     userId: string,
     threadId: string,
-    dto: { name?: string; addMemberUserIds?: string[]; removeUserId?: string },
+    dto: { name?: string; photoKey?: string; addMemberUserIds?: string[]; removeUserId?: string },
   ): Promise<ChatThreadResDto> {
     const thread = await this.data.findThreadById(this.namespace, threadId);
     if (!thread) {
@@ -317,6 +318,12 @@ export class ChatService {
     const isMember = participants.some((p) => p.userId === userId);
     if (!isMember) {
       throw new ForbiddenException("You are not a participant in this conversation");
+    }
+
+    if (dto.photoKey !== undefined) {
+      thread.photoKey = dto.photoKey;
+      thread.updatedBy = userId;
+      await this.data.saveThread(this.namespace, thread);
     }
 
     // 1. Update Group Name if provided
@@ -386,6 +393,8 @@ export class ChatService {
         senderPhotoKey: info?.photoKey || null,
         senderInitials: this.initials(dir?.fullName || "Member"),
         content: m.content,
+        mediaUrl: m.mediaUrl || null,
+        mediaType: m.mediaType || null,
         status: m.status,
         isMine: m.senderId === userId,
         createdAt: new Date(m.createdAt).toISOString(),
@@ -458,10 +467,13 @@ export class ChatService {
     };
   }
 
-  async sendMessage(userId: string, threadId: string, content: string): Promise<ChatMessageResDto> {
-    const cleanContent = content.trim();
-    if (!cleanContent) {
-      throw new BadRequestException("Message content cannot be empty");
+  async sendMessage(userId: string, threadId: string, content: string, mediaUrl?: string, mediaType?: string): Promise<ChatMessageResDto> {
+    let cleanContent = (content || "").trim();
+    if (!cleanContent && !mediaUrl) {
+      throw new BadRequestException("Message content or attachment is required");
+    }
+    if (!cleanContent && mediaUrl) {
+      cleanContent = mediaType === "VIDEO" ? "🎥 Video" : "📷 Photo";
     }
 
     const participants = await this.data.getParticipants(this.namespace, threadId);
@@ -480,6 +492,8 @@ export class ChatService {
     message.threadId = threadId;
     message.senderId = userId;
     message.content = cleanContent;
+    message.mediaUrl = mediaUrl || null;
+    message.mediaType = mediaType || (mediaUrl ? (/\.(mp4|mov|m4v|webm)/i.test(mediaUrl) || mediaUrl.includes("type=video") ? "VIDEO" : "IMAGE") : null);
     message.status = ChatMessageStatus.SENT;
     message.createdBy = userId;
     message.updatedBy = userId;
@@ -501,6 +515,8 @@ export class ChatService {
       senderName: userProfile?.directory.fullName || "Me",
       senderUsn: userProfile?.directory.usn || null,
       content: savedMsg.content,
+      mediaUrl: savedMsg.mediaUrl || null,
+      mediaType: savedMsg.mediaType || null,
       status: savedMsg.status,
       isMine: true,
       createdAt: new Date(savedMsg.createdAt).toISOString(),
