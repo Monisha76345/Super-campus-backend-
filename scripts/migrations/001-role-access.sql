@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS `user` (
   `loginId` varchar(255) NOT NULL,
   `passwordHash` varchar(255) NOT NULL,
   `status` enum('active','disabled') NOT NULL DEFAULT 'active',
+  `theme` varchar(20) NOT NULL DEFAULT 'dark',
   `changePasswordRequired` tinyint NOT NULL DEFAULT 0,
   `lastLoggedIn` datetime(6) NULL,
   `createdAt` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),

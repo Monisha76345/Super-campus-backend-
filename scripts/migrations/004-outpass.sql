@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS `outpass_request` (
   `usn` varchar(40) NULL,
   `roomNumber` varchar(40) NULL,
   `parentPhone` varchar(25) NULL,
+  `passType` enum('OUTPASS','LEAVE') NOT NULL DEFAULT 'OUTPASS',
   `destination` varchar(255) NOT NULL,
   `reason` text NOT NULL,
   `departureTime` datetime(6) NOT NULL,
