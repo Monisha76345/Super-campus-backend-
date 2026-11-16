@@ -36,6 +36,14 @@ export class ConnectDataService {
     return (await this.repo(namespace)).findClubs();
   }
 
+  async findClubById(namespace: string, id: string): Promise<CampusClub | null> {
+    return (await this.repo(namespace)).findClubById(id);
+  }
+
+  async saveClub(namespace: string, club: CampusClub): Promise<CampusClub> {
+    return (await this.repo(namespace)).saveClub(club);
+  }
+
   async findOpportunities(namespace: string, type?: OpportunityType): Promise<CampusOpportunity[]> {
     return (await this.repo(namespace)).findOpportunities(type);
   }

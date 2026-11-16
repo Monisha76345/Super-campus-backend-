@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { randomUUID } from "crypto";
+import { JwtPayload } from "src/core/common/decorators/current-user.decorator";
 import { TenantContextService } from "src/core/tenant/tenant-context.service";
 import { ConnectDataService } from "./connect-data.service";
 import { CampusEvent } from "../entity/campus-event.model";
@@ -109,17 +110,129 @@ export class ConnectService {
     };
   }
 
-  async getClubs(): Promise<CampusClubResDto[]> {
+  async getClubs(userId?: string): Promise<CampusClubResDto[]> {
     const list = await this.data.findClubs(this.namespace);
-    return list.map((c) => ({
-      id: c.id,
-      name: c.name,
-      category: c.category,
-      description: c.description,
-      memberCount: c.memberCount,
-      bannerKey: c.bannerKey,
-      status: c.status,
-    }));
+    return list.map((c) => {
+      const members = Array.isArray(c.membersData) ? c.membersData : [];
+      const isJoined = Boolean(userId && members.some((m: any) => m.userId === userId));
+      return {
+        id: c.id,
+        name: c.name,
+        category: c.category,
+        description: c.description,
+        leadUserId: c.leadUserId,
+        leadName: c.leadName,
+        meetingSchedule: c.meetingSchedule,
+        roomOrVenue: c.roomOrVenue,
+        contactEmail: c.contactEmail,
+        memberCount: c.memberCount,
+        bannerKey: c.bannerKey,
+        status: c.status,
+        isJoined,
+        members,
+      };
+    });
+  }
+
+  async getClubDetails(clubId: string, userId?: string): Promise<CampusClubResDto> {
+    const club = await this.data.findClubById(this.namespace, clubId);
+    if (!club) {
+      throw new NotFoundException("Club not found");
+    }
+
+    const members = Array.isArray(club.membersData) ? club.membersData : [];
+    const isJoined = Boolean(userId && members.some((m: any) => m.userId === userId));
+
+    return {
+      id: club.id,
+      name: club.name,
+      category: club.category,
+      description: club.description,
+      leadUserId: club.leadUserId,
+      leadName: club.leadName,
+      meetingSchedule: club.meetingSchedule,
+      roomOrVenue: club.roomOrVenue,
+      contactEmail: club.contactEmail,
+      memberCount: club.memberCount,
+      bannerKey: club.bannerKey,
+      status: club.status,
+      isJoined,
+      members,
+    };
+  }
+
+  async toggleJoinClub(clubId: string, user: JwtPayload): Promise<CampusClubResDto> {
+    const club = await this.data.findClubById(this.namespace, clubId);
+    if (!club) {
+      throw new NotFoundException("Club not found");
+    }
+
+    let members = Array.isArray(club.membersData) ? [...club.membersData] : [];
+    const index = members.findIndex((m: any) => m.userId === user.sub);
+
+    let isJoined: boolean;
+    if (index >= 0) {
+      // Leave club
+      members.splice(index, 1);
+      club.memberCount = Math.max(club.memberCount - 1, members.length);
+      isJoined = false;
+    } else {
+      // Join club
+      const userEmailPrefix = user.email ? user.email.split("@")[0] : "Student";
+      let fullName = userEmailPrefix;
+      let usn = null;
+
+      try {
+        const dirInfo = await this.data.findMemberById(this.namespace, user.sub);
+        if (dirInfo?.directory?.fullName) {
+          fullName = dirInfo.directory.fullName;
+          usn = dirInfo.directory.usn || null;
+        }
+      } catch {
+        // Fallback to email name
+      }
+
+      const initials = fullName
+        .split(" ")
+        .map((p: string) => p.charAt(0))
+        .join("")
+        .slice(0, 2)
+        .toUpperCase();
+
+      members.push({
+        userId: user.sub,
+        fullName,
+        clubRole: "Active Member",
+        department: "Engineering",
+        batch: "2024",
+        usn,
+        initials,
+        isLead: false,
+      });
+
+      club.memberCount = Math.max(club.memberCount + 1, members.length);
+      isJoined = true;
+    }
+
+    club.membersData = members;
+    const saved = await this.data.saveClub(this.namespace, club);
+
+    return {
+      id: saved.id,
+      name: saved.name,
+      category: saved.category,
+      description: saved.description,
+      leadUserId: saved.leadUserId,
+      leadName: saved.leadName,
+      meetingSchedule: saved.meetingSchedule,
+      roomOrVenue: saved.roomOrVenue,
+      contactEmail: saved.contactEmail,
+      memberCount: saved.memberCount,
+      bannerKey: saved.bannerKey,
+      status: saved.status,
+      isJoined,
+      members,
+    };
   }
 
   async getOpportunities(type?: OpportunityType): Promise<CampusOpportunityResDto[]> {

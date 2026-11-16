@@ -239,8 +239,9 @@ export class UserService {
       throw new BadRequestException("This account cannot be activated");
     }
     const code = await this.otp.issue(`activate:${loginId}`);
-    const debugOtp = await this.deliver(loginId, code);
-    return { destination: loginId, debugOtp };
+    const targetEmail = directory.collegeEmail || directory.personalEmail || loginId;
+    const debugOtp = await this.deliver(targetEmail, code);
+    return { destination: targetEmail, debugOtp };
   }
 
   async verifyActivation(email: string, otp: string): Promise<ActivationTokenResDto> {
@@ -621,6 +622,10 @@ export class UserService {
     if (fallbackDir) {
       return { tenantId: defaultTenant, directory: fallbackDir };
     }
+    const byUsn = await this.data.findDirectoryByUsn(defaultTenant, loginId.toUpperCase());
+    if (byUsn) {
+      return { tenantId: defaultTenant, directory: byUsn };
+    }
     return null;
   }
 
@@ -767,6 +772,74 @@ export class UserService {
       usn: directory?.usn ?? null,
       isHostelite,
     };
+  }
+
+  /** Phone + display name for ChangePay external customer login. */
+  async getFoodCustomerContact(userId: string): Promise<{ phone: string; profileName: string }> {
+    const fallbackPhone = (this.config.get<string>("changepay.defaultCustomerPhone") || "").trim();
+    const localUserId = (this.config.get<string>("LOCAL_LOGIN_USER_ID") || "").trim();
+    const localName = (this.config.get<string>("LOCAL_LOGIN_FULL_NAME") || "Student").trim();
+
+    const toE164 = (raw: string): string | null => {
+      const digits = normalizeMobile(raw);
+      if (!digits) {
+        return null;
+      }
+      if (digits.startsWith("91") && digits.length >= 12) {
+        return `+${digits}`;
+      }
+      if (digits.length === 10) {
+        return `+91${digits}`;
+      }
+      return `+${digits}`;
+    };
+
+    // Synthetic local-dev JWT subject is not a campus DB user.
+    if (localUserId && userId === localUserId) {
+      const phone = toE164(fallbackPhone);
+      if (!phone) {
+        throw new BadRequestException(
+          "Set CHANGEPAY_DEFAULT_CUSTOMER_PHONE for local food ordering",
+        );
+      }
+      return { phone, profileName: localName || "Student" };
+    }
+
+    const namespace = this.tenantContext.getTenantId();
+    const user = await this.data.findUserById(namespace, userId);
+    if (!user) {
+      const phone = toE164(fallbackPhone);
+      if (phone) {
+        return { phone, profileName: localName || "Student" };
+      }
+      throw new NotFoundException("User account not found");
+    }
+    const directory = await this.data.findDirectoryById(namespace, user.directoryId);
+    if (!directory) {
+      throw new NotFoundException("Campus directory entry not found");
+    }
+
+    const profile = await this.data.findProfileByUserId(namespace, userId);
+    const profileName =
+      [profile?.firstName, profile?.lastName].filter(Boolean).join(" ").trim() ||
+      directory.fullName ||
+      "Student";
+
+    if (directory.mobile) {
+      const phone = toE164(directory.mobile);
+      if (phone) {
+        return { phone, profileName };
+      }
+      throw new BadRequestException("Campus mobile number is invalid for food ordering");
+    }
+
+    const fallback = toE164(fallbackPhone);
+    if (fallback) {
+      return { phone: fallback, profileName };
+    }
+    throw new BadRequestException(
+      "Add a mobile number to your campus profile before ordering food",
+    );
   }
 
   async updateTheme(userId: string, theme: string): Promise<{ theme: string }> {

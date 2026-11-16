@@ -55,6 +55,18 @@ export class ProfileService {
       if (body.bio !== undefined) {
         profile.bio = this.clean(body.bio);
       }
+      if (body.department !== undefined) {
+        directory.department = this.clean(body.department);
+      }
+      if (body.batch !== undefined) {
+        directory.batch = this.clean(body.batch);
+      }
+      if (body.usn !== undefined) {
+        directory.usn = this.clean(body.usn) || directory.usn;
+      }
+      if (body.collegeEmail !== undefined) {
+        directory.collegeEmail = this.clean(body.collegeEmail) || directory.collegeEmail;
+      }
       const fullName = [profile.firstName, profile.lastName].filter(Boolean).join(" ").trim();
       if (fullName) {
         directory.fullName = fullName;
@@ -206,7 +218,7 @@ export class ProfileService {
   }
 
   private async createProfile(namespace: string, userId: string, directory: CampusDirectory): Promise<UserProfile> {
-    const [firstName, ...rest] = directory.fullName.trim().split(/\s+/);
+    const [firstName, ...rest] = (directory.fullName || "").trim().split(/\s+/);
     const profile = new UserProfile();
     profile.id = randomUUID();
     profile.userId = userId;
@@ -216,12 +228,26 @@ export class ProfileService {
     profile.graduationYear = this.yearFromBatch(directory.batch);
     profile.visibility = ProfileVisibility.CAMPUS;
     profile.residency = directory.isHostelite ? ResidencyStatus.HOSTEL_RESIDENT : ResidencyStatus.NOT_SET;
-    profile.bio = null;
+    profile.bio = `${directory.role || "Student"} · ${directory.department || "Engineering"} (USN: ${directory.usn || "N/A"})`;
     profile.photoDocumentId = null;
     profile.photoKey = null;
-    profile.education = [];
+    profile.education = directory.department
+      ? [
+          {
+            id: randomUUID(),
+            school: "Campus Institute",
+            degree: `B.E. in ${directory.department}`,
+            startDate: directory.batch ? `${Number(directory.batch) - 4}-08-01` : null,
+            endDate: directory.batch ? `${directory.batch}-06-30` : null,
+            visibility: ProfileVisibility.CAMPUS,
+          },
+        ]
+      : [];
     profile.experience = [];
-    profile.skills = [];
+    profile.skills = [
+      { id: randomUUID(), name: directory.department || "Engineering" },
+      { id: randomUUID(), name: "Problem Solving" },
+    ];
     profile.createdBy = userId;
     profile.updatedBy = userId;
     return this.data.saveProfile(namespace, profile);
@@ -302,6 +328,12 @@ export class ProfileService {
   }
 
   private toResponse(profile: UserProfile, directory: CampusDirectory): ProfileResDto {
+    const [first, ...rest] = (directory.fullName || "").trim().split(/\s+/);
+    const firstName = profile.firstName || first || null;
+    const lastName = profile.lastName || (rest.length ? rest.join(" ") : null);
+    const graduationYear = profile.graduationYear || this.yearFromBatch(directory.batch);
+    const bio = profile.bio || `${directory.role || "Campus Member"} · ${directory.department || "Engineering"}`;
+
     return {
       id: profile.id,
       usn: directory.usn,
@@ -309,13 +341,13 @@ export class ProfileService {
       role: directory.role,
       department: directory.department,
       batch: directory.batch,
-      firstName: profile.firstName,
-      lastName: profile.lastName,
+      firstName,
+      lastName,
       handle: profile.handle,
-      graduationYear: profile.graduationYear,
+      graduationYear,
       visibility: profile.visibility,
       residency: profile.residency,
-      bio: profile.bio,
+      bio,
       photoDocumentId: profile.photoDocumentId,
       photoKey: profile.photoKey,
       education: this.list<EducationItem>(profile.education),

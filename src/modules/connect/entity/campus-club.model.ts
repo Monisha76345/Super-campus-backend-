@@ -17,6 +17,21 @@ export class CampusClub {
   @Column({ name: "lead_user_id", type: "varchar", length: 36, nullable: true })
   leadUserId: string | null;
 
+  @Column({ name: "lead_name", type: "varchar", length: 255, nullable: true })
+  leadName: string | null;
+
+  @Column({ name: "meeting_schedule", type: "varchar", length: 255, nullable: true })
+  meetingSchedule: string | null;
+
+  @Column({ name: "room_or_venue", type: "varchar", length: 255, nullable: true })
+  roomOrVenue: string | null;
+
+  @Column({ name: "contact_email", type: "varchar", length: 255, nullable: true })
+  contactEmail: string | null;
+
+  @Column({ name: "members_data", type: "json", nullable: true })
+  membersData: any[] | null;
+
   @Column({ name: "member_count", type: "int", default: 1 })
   memberCount: number;
 

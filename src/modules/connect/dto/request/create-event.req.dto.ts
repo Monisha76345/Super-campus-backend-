@@ -31,4 +31,9 @@ export class CreateEventReqDto {
   @IsNumber()
   @IsOptional()
   capacity?: number;
+
+  @ApiPropertyOptional({ description: "Google Forms / Sheets URL for participant registrations" })
+  @IsString()
+  @IsOptional()
+  googleFormsUrl?: string;
 }

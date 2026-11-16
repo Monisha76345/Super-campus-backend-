@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { Logger, ValidationPipe } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { NestFactory } from "@nestjs/core";
@@ -36,10 +37,13 @@ async function bootstrap() {
   SwaggerModule.setup("api/docs", app, document);
 
   const port = config.get<number>("PORT") || parseInt(process.env.PORT || "3001", 10);
-  await app.listen(port);
+  await app.listen(port, "0.0.0.0");
   const logger = new Logger("Bootstrap");
   logger.log(`Application is running on: http://localhost:${port}/${apiPrefix}`);
   logger.log(`Swagger docs: http://localhost:${port}/api/docs`);
 }
 
-void bootstrap();
+bootstrap().catch((err) => {
+  console.error("FATAL BOOTSTRAP ERROR:", err);
+  process.exit(1);
+});

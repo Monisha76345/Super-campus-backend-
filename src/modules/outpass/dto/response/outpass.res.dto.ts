@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { OutpassStatus } from "../../entity/enums/outpass-status.enum";
+import { PassType } from "../../entity/enums/pass-type.enum";
 
 export class OutpassResDto {
   @ApiProperty({ example: "3fa85f64-5717-4562-b3fc-2c963f66afa6" })
@@ -19,6 +20,9 @@ export class OutpassResDto {
 
   @ApiPropertyOptional({ example: "+919876543210" })
   parentPhone: string | null;
+
+  @ApiProperty({ enum: PassType, example: PassType.OUTPASS })
+  passType: PassType;
 
   @ApiProperty({ example: "Home visit" })
   destination: string;

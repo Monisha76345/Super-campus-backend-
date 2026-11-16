@@ -9,6 +9,10 @@ export class ProjectMapper {
       creatorId: row.creatorId,
       creatorName: row.creatorName ?? null,
       creatorUsn: row.creatorUsn ?? null,
+      creatorRole: row.creatorRole ?? null,
+      creatorDepartment: row.creatorDepartment ?? null,
+      creatorEmployeeId: row.creatorEmployeeId ?? null,
+      creatorBatch: row.creatorBatch ?? null,
       title: row.title,
       shortDescription: row.shortDescription,
       moreDetails: row.moreDetails ?? null,
@@ -19,6 +23,9 @@ export class ProjectMapper {
       location: row.location,
       visibility: row.visibility,
       bannerUrl: row.bannerUrl ?? null,
+      fundingTarget: Number(row.fundingTarget) || 0,
+      fundingRaised: Number(row.fundingRaised) || 0,
+      backersCount: Number(row.backersCount) || 0,
       skills: row.skills ? row.skills.map((s) => s.skillName) : [],
       supportNeeds: row.supportNeeds
         ? row.supportNeeds.map((s) => ({

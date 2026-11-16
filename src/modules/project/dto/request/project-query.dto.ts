@@ -23,4 +23,19 @@ export class ProjectQueryDto {
   @IsOptional()
   @IsString()
   mine?: string;
+
+  @ApiPropertyOptional({ description: "Filter by project domain (e.g. AI/ML, Web, Mobile, IoT, Cloud, Blockchain)" })
+  @IsOptional()
+  @IsString()
+  domain?: string;
+
+  @ApiPropertyOptional({ description: "Filter by support offered (e.g. HIRE_STUDENTS, HIRE_MENTOR)" })
+  @IsOptional()
+  @IsString()
+  supportOffered?: string;
+
+  @ApiPropertyOptional({ description: "Filter by support required (e.g. COLLEGE_FUNDING, CROWDFUNDING)" })
+  @IsOptional()
+  @IsString()
+  supportRequired?: string;
 }

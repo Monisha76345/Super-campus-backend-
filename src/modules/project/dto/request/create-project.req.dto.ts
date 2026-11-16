@@ -119,6 +119,10 @@ export class CreateProjectReqDto {
   @IsString()
   bannerUrl?: string;
 
+  @ApiPropertyOptional({ example: 50000 })
+  @IsOptional()
+  fundingTarget?: number;
+
   @ApiPropertyOptional()
   @IsOptional()
   pdfDocument?: any;

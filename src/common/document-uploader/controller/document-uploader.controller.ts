@@ -99,16 +99,21 @@ export class DocumentUploaderController {
   @Public()
   @Get("preview")
   @ApiOperation({ summary: "Preview a document by storage key" })
-  async preview(@Query("key") key: string, @Res() res: Response) {
+  async preview(@Query("key") key: string, @Query("type") type: string, @Query("ext") ext: string, @Res() res: Response) {
     if (!key) {
       throw new BadRequestException("key is required");
     }
     try {
       const metaData = await this.storage.getMetaData(key);
       const data = await this.storage.downloadFile(key);
+      let mime = metaData.mimetype || "application/octet-stream";
+      if (type === "video" || ext === ".mp4" || key.endsWith(".mp4")) {
+        mime = "video/mp4";
+      }
       res.set({
-        "Content-Type": metaData.mimetype || "application/octet-stream",
+        "Content-Type": mime,
         "Content-Disposition": `inline; filename="${metaData.filename || "file"}"`,
+        "Accept-Ranges": "bytes",
       });
       if (data.Body instanceof Readable) {
         data.Body.pipe(res);

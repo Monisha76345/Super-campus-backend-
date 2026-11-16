@@ -26,6 +26,12 @@ export class ChatMessageResDto {
   @ApiProperty()
   content: string;
 
+  @ApiProperty({ nullable: true })
+  mediaUrl?: string | null;
+
+  @ApiProperty({ nullable: true })
+  mediaType?: string | null;
+
   @ApiProperty({ enum: ChatMessageStatus })
   status: ChatMessageStatus;
 

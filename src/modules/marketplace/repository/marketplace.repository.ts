@@ -23,6 +23,8 @@ export class MarketplaceRepository {
     category?: string;
     condition?: MarketplaceCondition;
     search?: string;
+    sellerRole?: string;
+    listingType?: string;
   }): Promise<MarketplaceItem[]> {
     const qb = this.manager
       .getRepository(MarketplaceItem)
@@ -33,12 +35,36 @@ export class MarketplaceRepository {
       qb.andWhere("item.status = :status", { status: options.status });
     }
 
+    if (options?.listingType) {
+      const typeUpper = options.listingType.toUpperCase();
+      if (typeUpper === "CAMPUS_STORE") {
+        qb.andWhere(
+          "(item.listingType = 'CAMPUS_STORE' OR item.sellerRole IN ('CAMPUS_ADMIN', 'ADMIN', 'admin', 'campus_admin'))"
+        );
+      } else if (typeUpper === "BUY_SELL") {
+        qb.andWhere(
+          "(item.listingType = 'BUY_SELL' AND (item.sellerRole NOT IN ('CAMPUS_ADMIN', 'ADMIN', 'admin', 'campus_admin') OR item.sellerRole IS NULL))"
+        );
+      }
+    }
+
     if (options?.category && options.category.toLowerCase() !== "all") {
       qb.andWhere("item.category = :category", { category: options.category });
     }
 
     if (options?.condition) {
       qb.andWhere("item.condition = :condition", { condition: options.condition });
+    }
+
+    if (options?.sellerRole) {
+      const roleUpper = options.sellerRole.toUpperCase();
+      if (roleUpper === "CAMPUS_ADMIN" || roleUpper === "ADMIN") {
+        qb.andWhere(
+          "(item.sellerRole = 'CAMPUS_ADMIN' OR item.sellerRole = 'ADMIN' OR item.sellerRole = 'admin' OR item.sellerRole = 'campus_admin')"
+        );
+      } else {
+        qb.andWhere("item.sellerRole = :sellerRole", { sellerRole: options.sellerRole });
+      }
     }
 
     if (options?.search && options.search.trim()) {

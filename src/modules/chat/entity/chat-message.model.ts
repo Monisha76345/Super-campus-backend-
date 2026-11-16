@@ -14,8 +14,14 @@ export class ChatMessage extends BaseCamelCase {
   @Column({ type: "varchar", length: 36 })
   senderId: string;
 
-  @Column({ type: "varchar", length: 2000 })
+  @Column({ type: "varchar", length: 2000, default: "" })
   content: string;
+
+  @Column({ type: "varchar", length: 500, nullable: true })
+  mediaUrl: string | null;
+
+  @Column({ type: "varchar", length: 20, nullable: true })
+  mediaType: string | null;
 
   @Column({
     type: "enum",

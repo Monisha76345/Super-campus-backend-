@@ -25,6 +25,18 @@ export class Project extends BaseCamelCase {
   @Column({ type: "varchar", length: 40, nullable: true })
   creatorUsn: string | null;
 
+  @Column({ type: "varchar", length: 40, nullable: true })
+  creatorRole: string | null;
+
+  @Column({ type: "varchar", length: 100, nullable: true })
+  creatorDepartment: string | null;
+
+  @Column({ type: "varchar", length: 50, nullable: true })
+  creatorEmployeeId: string | null;
+
+  @Column({ type: "varchar", length: 30, nullable: true })
+  creatorBatch: string | null;
+
   @Column({ type: "varchar", length: 140 })
   title: string;
 
@@ -70,6 +82,15 @@ export class Project extends BaseCamelCase {
 
   @Column({ type: "varchar", length: 500, nullable: true })
   bannerUrl: string | null;
+
+  @Column({ type: "decimal", precision: 10, scale: 2, default: 0 })
+  fundingTarget: number;
+
+  @Column({ type: "decimal", precision: 10, scale: 2, default: 0 })
+  fundingRaised: number;
+
+  @Column({ type: "int", default: 0 })
+  backersCount: number;
 
   @OneToMany(() => ProjectSkill, (skill) => skill.project, { cascade: true })
   skills: ProjectSkill[];

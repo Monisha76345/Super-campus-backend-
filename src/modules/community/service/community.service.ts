@@ -133,7 +133,7 @@ export class CommunityService {
     const page = query.page || 1;
     const offset = (page - 1) * limit;
 
-    const posts = await this.data.findFeedPosts(namespace, limit, offset);
+    const posts = await this.data.findFeedPosts(namespace, limit, offset, query.tab, user.sub);
     return posts.map((post) => this.mapToDto(post, user.sub));
   }
 
@@ -241,8 +241,15 @@ export class CommunityService {
     }
 
     const isAuthor = post.authorId === user.sub;
-    const roles = user.roles || [];
-    const isAdmin = roles.some((r) => r === "admin" || r === "campus_admin" || r === "superadmin");
+    const roles = (user.roles || []).map((r) => String(r).toLowerCase().replace(/[-_]/g, ""));
+    const singleRole = ((user as any).role || "").toLowerCase().replace(/[-_]/g, "");
+    const isAdmin =
+      roles.includes("admin") ||
+      roles.includes("campusadmin") ||
+      roles.includes("superadmin") ||
+      singleRole === "admin" ||
+      singleRole === "campusadmin" ||
+      singleRole === "superadmin";
 
     if (!isAuthor && !isAdmin) {
       throw new ForbiddenException("You do not have permission to delete this post");

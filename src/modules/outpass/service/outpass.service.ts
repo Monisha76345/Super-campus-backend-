@@ -8,6 +8,7 @@ import { UpdateOutpassStatusReqDto } from "../dto/request/update-outpass-status.
 import { GateScanResDto } from "../dto/response/gate-scan.res.dto";
 import { OutpassResDto } from "../dto/response/outpass.res.dto";
 import { OutpassStatus } from "../entity/enums/outpass-status.enum";
+import { PassType } from "../entity/enums/pass-type.enum";
 import { OutpassRequest } from "../entity/outpass.model";
 import { OutpassMapper } from "../mapper/outpass.mapper";
 import { OutpassDataService } from "./outpass-data.service";
@@ -44,6 +45,21 @@ export class OutpassService {
       throw new BadRequestException("Outpass requests are only permitted for registered hostelite students");
     }
 
+    // If return is on another day or after 10:00 PM, it is strictly classified as LEAVE
+    const isSameDay =
+      departure.getFullYear() === returnTime.getFullYear() &&
+      departure.getMonth() === returnTime.getMonth() &&
+      departure.getDate() === returnTime.getDate();
+
+    const returnHour = returnTime.getHours();
+    const returnMinute = returnTime.getMinutes();
+    const isPast10Pm = returnHour > 22 || (returnHour === 22 && returnMinute > 0);
+
+    let effectivePassType = body.passType ?? PassType.OUTPASS;
+    if (!isSameDay || isPast10Pm) {
+      effectivePassType = PassType.LEAVE;
+    }
+
     const outpass = new OutpassRequest();
     outpass.id = randomUUID();
     outpass.studentId = userId;
@@ -51,6 +67,7 @@ export class OutpassService {
     outpass.usn = student.usn;
     outpass.roomNumber = body.roomNumber ?? null;
     outpass.parentPhone = body.parentPhone?.trim() || null;
+    outpass.passType = effectivePassType;
     outpass.destination = body.destination.trim();
     outpass.reason = body.reason.trim();
     outpass.departureTime = departure;

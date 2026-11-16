@@ -1,8 +1,10 @@
 import {
+  ForbiddenException,
   Body,
   Controller,
   Get,
   Param,
+  Patch,
   Post,
   Query,
 } from "@nestjs/common";
@@ -11,12 +13,16 @@ import { CurrentUser, JwtPayload } from "src/core/common/decorators/current-user
 import { ApiResponseDto } from "src/core/common/dto/api-response.dto";
 import {
   AddTeammateDto,
+  CallOffDayDto,
   CancelBookingDto,
   CreateBookingDto,
   CreateFacilityDto,
   JoinWithCodeDto,
+  QueryClosuresDto,
   QueryFacilitiesDto,
   QuerySlotsDto,
+  ReopenDayDto,
+  UpdateFacilityTimingDto,
 } from "../dto/sports.dto";
 import { SportsService } from "../service/sports.service";
 
@@ -153,12 +159,26 @@ export class SportsController {
     return ApiResponseDto.success(cancelled, "Booking cancelled successfully");
   }
 
+  private ensureSportsAdmin(user: JwtPayload): void {
+    const roles = (user.roles || []).map((r) => r.toUpperCase());
+    const isAllowed =
+      roles.includes("ADMIN") ||
+      roles.includes("CAMPUS_ADMIN") ||
+      roles.includes("SUPER_ADMIN");
+    if (!isAllowed) {
+      throw new ForbiddenException(
+        "Access denied: Only campus administrators can manage facility timings or call off sports courts."
+      );
+    }
+  }
+
   @Post("admin/facilities")
   @ApiOperation({ summary: "Staff / Sports Admin: Register new court or ground" })
   async createFacility(
     @CurrentUser() user: JwtPayload,
     @Body() body: CreateFacilityDto,
   ) {
+    this.ensureSportsAdmin(user);
     const facility = await this.sportsService.createFacility(
       user.tenantId,
       body,
@@ -166,4 +186,70 @@ export class SportsController {
     );
     return ApiResponseDto.success(facility, "Sports facility created successfully");
   }
+
+  @Post("admin/call-off")
+  @ApiOperation({ summary: "Admin: Call off court bookings for a day (e.g. rain, maintenance)" })
+  async callOffDay(
+    @CurrentUser() user: JwtPayload,
+    @Body() body: CallOffDayDto,
+  ) {
+    this.ensureSportsAdmin(user);
+    const res = await this.sportsService.callOffDay(
+      user.tenantId,
+      body,
+      user.sub,
+    );
+    return ApiResponseDto.success(res, res.message);
+  }
+
+  @Post("admin/reopen")
+  @ApiOperation({ summary: "Admin: Reopen court bookings for a previously called-off day" })
+  async reopenDay(
+    @CurrentUser() user: JwtPayload,
+    @Body() body: ReopenDayDto,
+  ) {
+    this.ensureSportsAdmin(user);
+    const res = await this.sportsService.reopenDay(
+      user.tenantId,
+      body,
+      user.sub,
+    );
+    return ApiResponseDto.success(res, res.message);
+  }
+
+  @Get("admin/closures")
+  @ApiOperation({ summary: "Admin: List current facility closures & called-off dates" })
+  async getClosures(
+    @CurrentUser() user: JwtPayload,
+    @Query() query: QueryClosuresDto,
+  ) {
+    this.ensureSportsAdmin(user);
+    const closures = await this.sportsService.getClosures(
+      user.tenantId,
+      query.facilityId,
+      query.closureDate,
+    );
+    return ApiResponseDto.success(closures, "Closures retrieved successfully");
+  }
+
+  @Patch("admin/facilities/:id/timing")
+  @ApiOperation({ summary: "Admin: Update court operational timings or add extra slot timings" })
+  async updateFacilityTiming(
+    @CurrentUser() user: JwtPayload,
+    @Param("id") id: string,
+    @Body() body: UpdateFacilityTimingDto,
+  ) {
+    this.ensureSportsAdmin(user);
+    const updated = await this.sportsService.updateFacilityTiming(
+      user.tenantId,
+      id,
+      body,
+      user.sub,
+    );
+    return ApiResponseDto.success(
+      updated,
+      "Facility timings updated successfully! New slots are live.",
+    );
+  }
 }
+

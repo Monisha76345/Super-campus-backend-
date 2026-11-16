@@ -2,6 +2,7 @@ import { MiddlewareConsumer, Module, NestModule } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
 import { DocumentUploaderModule } from "./common/document-uploader/document-uploader.module";
+import changepayConfig from "./config/changepay.config";
 import databaseConfig from "./config/database.config";
 import jwtConfig from "./config/jwt.config";
 import storageConfig from "./config/storage.config";
@@ -22,13 +23,14 @@ import { MarketplaceModule } from "./modules/marketplace/marketplace.module";
 import { ConnectModule } from "./modules/connect/connect.module";
 import { CommunityModule } from "./modules/community/community.module";
 import { SportsModule } from "./modules/sports/sports.module";
+import { FoodModule } from "./modules/food/food.module";
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: [".env.local", ".env"],
-      load: [databaseConfig, jwtConfig, storageConfig],
+      load: [databaseConfig, jwtConfig, storageConfig, changepayConfig],
     }),
     TenantModule,
     DatabaseModule,
@@ -43,6 +45,7 @@ import { SportsModule } from "./modules/sports/sports.module";
     ConnectModule,
     CommunityModule,
     SportsModule,
+    FoodModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },

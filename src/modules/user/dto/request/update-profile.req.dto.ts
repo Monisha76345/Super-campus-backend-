@@ -45,4 +45,28 @@ export class UpdateProfileReqDto {
   @IsString()
   @MaxLength(500)
   bio?: string;
+
+  @ApiPropertyOptional({ example: "Computer Science & Engineering" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  department?: string;
+
+  @ApiPropertyOptional({ example: "2025" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(32)
+  batch?: string;
+
+  @ApiPropertyOptional({ example: "1MS21CS045" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  usn?: string;
+
+  @ApiPropertyOptional({ example: "student@campus.edu" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  collegeEmail?: string;
 }

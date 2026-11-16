@@ -58,4 +58,9 @@ export class SportsBooking extends BaseCamelCase {
 
   @Column({ type: "varchar", length: 64 })
   qrToken: string;
+
+  facilityName?: string;
+  sportType?: string;
+  venueType?: string;
+  location?: string;
 }

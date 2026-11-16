@@ -2,13 +2,20 @@ import { readdirSync, readFileSync } from "fs";
 import { join } from "path";
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { createConnection } from "mysql2/promise";
+import { Connection, createConnection, RowDataPacket } from "mysql2/promise";
 import { NamespaceDbConfig } from "src/config/database.config";
 
 interface DatabaseConfig {
   namespaces: string[];
   getConnectionConfig: (namespace: string) => NamespaceDbConfig;
 }
+
+interface MigrationFile {
+  name: string;
+  statements: string[];
+}
+
+const MIGRATIONS_TABLE = "_schema_migrations";
 
 @Injectable()
 export class RoleSchemaService implements OnModuleInit {
@@ -22,14 +29,14 @@ export class RoleSchemaService implements OnModuleInit {
       this.logger.warn("NAMESPACES is empty. Schema scripts were not applied.");
       return;
     }
-    const statements = this.statements();
+    const migrations = this.migrations();
     for (const namespace of database.namespaces) {
       const cfg = database.getConnectionConfig(namespace);
-      await this.apply(namespace, cfg, statements);
+      await this.apply(namespace, cfg, migrations);
     }
   }
 
-  private statements(): string[] {
+  private migrations(): MigrationFile[] {
     const candidates = [
       join(process.cwd(), "scripts/migrations"),
       join(__dirname, "../../../../scripts/migrations"),
@@ -47,7 +54,11 @@ export class RoleSchemaService implements OnModuleInit {
     return readdirSync(directory)
       .filter((name) => name.endsWith(".sql"))
       .sort()
-      .flatMap((name) => this.parse(readFileSync(join(directory, name), "utf8")));
+      .map((name) => ({
+        name,
+        statements: this.parse(readFileSync(join(directory, name), "utf8")),
+      }))
+      .filter((migration) => migration.statements.length > 0);
   }
 
   private parse(sql: string): string[] {
@@ -63,7 +74,11 @@ export class RoleSchemaService implements OnModuleInit {
       .filter(Boolean);
   }
 
-  private async apply(namespace: string, cfg: NamespaceDbConfig, statements: string[]): Promise<void> {
+  private async apply(
+    namespace: string,
+    cfg: NamespaceDbConfig,
+    migrations: MigrationFile[],
+  ): Promise<void> {
     try {
       const connection = await createConnection({
         host: cfg.host,
@@ -74,34 +89,74 @@ export class RoleSchemaService implements OnModuleInit {
         multipleStatements: false,
       });
       try {
-        for (const statement of statements) {
-          try {
-            await connection.query(statement);
-          } catch (stmtError: any) {
-            // 1060 = ER_DUP_FIELDNAME, 1061 = ER_DUP_KEYNAME, 1050 = ER_TABLE_EXISTS_ERROR
-            if (
-              stmtError?.errno === 1060 ||
-              stmtError?.code === "ER_DUP_FIELDNAME" ||
-              stmtError?.errno === 1061 ||
-              stmtError?.code === "ER_DUP_KEYNAME" ||
-              stmtError?.errno === 1050 ||
-              stmtError?.code === "ER_TABLE_EXISTS_ERROR"
-            ) {
-              this.logger.debug(
-                `Skipping already applied migration statement on ${namespace} (${stmtError.code || stmtError.errno}): ${stmtError.message}`,
-              );
-              continue;
-            }
-            throw stmtError;
+        await this.ensureMigrationsTable(connection);
+        const applied = await this.appliedMigrations(connection);
+        let ran = 0;
+
+        for (const migration of migrations) {
+          if (applied.has(migration.name)) {
+            continue;
           }
+          for (const statement of migration.statements) {
+            await this.runStatement(connection, statement);
+          }
+          await connection.query(
+            `INSERT INTO \`${MIGRATIONS_TABLE}\` (\`name\`, \`appliedAt\`) VALUES (?, CURRENT_TIMESTAMP(6))`,
+            [migration.name],
+          );
+          ran += 1;
+        }
+
+        if (ran > 0) {
+          this.logger.log(
+            `Applied ${ran} schema migration(s) on ${cfg.database} (${namespace})`,
+          );
+        } else {
+          this.logger.log(`Schema scripts are ready on ${cfg.database} (${namespace})`);
         }
       } finally {
         await connection.end();
       }
-      this.logger.log(`Schema scripts are ready on ${cfg.database} (${namespace})`);
     } catch (error) {
       const message = error instanceof Error ? error.message : "unknown error";
       this.logger.error(`Schema scripts were not applied on ${namespace}: ${message}`);
+    }
+  }
+
+  private async ensureMigrationsTable(connection: Connection): Promise<void> {
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS \`${MIGRATIONS_TABLE}\` (
+        \`name\` varchar(255) NOT NULL,
+        \`appliedAt\` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+        PRIMARY KEY (\`name\`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+  }
+
+  private async appliedMigrations(connection: Connection): Promise<Set<string>> {
+    const [rows] = await connection.query<RowDataPacket[]>(
+      `SELECT \`name\` FROM \`${MIGRATIONS_TABLE}\``,
+    );
+    return new Set(rows.map((row) => String(row.name)));
+  }
+
+  private async runStatement(connection: Connection, statement: string): Promise<void> {
+    try {
+      await connection.query(statement);
+    } catch (stmtError: any) {
+      // 1060 = ER_DUP_FIELDNAME, 1061 = ER_DUP_KEYNAME, 1050 = ER_TABLE_EXISTS_ERROR
+      // Expected when an older ALTER is applied to a table that already has the change.
+      if (
+        stmtError?.errno === 1060 ||
+        stmtError?.code === "ER_DUP_FIELDNAME" ||
+        stmtError?.errno === 1061 ||
+        stmtError?.code === "ER_DUP_KEYNAME" ||
+        stmtError?.errno === 1050 ||
+        stmtError?.code === "ER_TABLE_EXISTS_ERROR"
+      ) {
+        return;
+      }
+      throw stmtError;
     }
   }
 }

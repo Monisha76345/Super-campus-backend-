@@ -37,6 +37,15 @@ export class MarketplaceItemResDto {
   @ApiProperty()
   sellerRole: string;
 
+  @ApiProperty()
+  listingType: string;
+
+  @ApiPropertyOptional()
+  contactPhone?: string | null;
+
+  @ApiPropertyOptional()
+  contactEmail?: string | null;
+
   @ApiProperty({ enum: MarketplaceStatus })
   status: MarketplaceStatus;
 

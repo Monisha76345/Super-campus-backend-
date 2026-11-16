@@ -186,4 +186,42 @@ export class SportsRepository {
   async saveClosure(closure: SportsFacilityClosure): Promise<SportsFacilityClosure> {
     return this.manager.getRepository(SportsFacilityClosure).save(closure);
   }
+
+  async findClosures(
+    facilityId?: string,
+    closureDate?: string,
+  ): Promise<SportsFacilityClosure[]> {
+    const qb = this.manager
+      .getRepository(SportsFacilityClosure)
+      .createQueryBuilder("c");
+
+    if (facilityId && facilityId !== "ALL") {
+      qb.andWhere("c.facilityId = :facilityId", { facilityId });
+    }
+    if (closureDate) {
+      qb.andWhere("c.closureDate = :closureDate", { closureDate });
+    }
+
+    return qb.orderBy("c.closureDate", "ASC").getMany();
+  }
+
+  async deleteClosuresForFacilityDate(
+    facilityId: string,
+    closureDate: string,
+  ): Promise<number> {
+    const qb = this.manager
+      .getRepository(SportsFacilityClosure)
+      .createQueryBuilder()
+      .delete()
+      .from(SportsFacilityClosure)
+      .where("closureDate = :closureDate", { closureDate });
+
+    if (facilityId !== "ALL") {
+      qb.andWhere("facilityId = :facilityId", { facilityId });
+    }
+
+    const result = await qb.execute();
+    return result.affected || 0;
+  }
 }
+

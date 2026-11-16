@@ -54,6 +54,7 @@ export class ChatController {
       user.sub,
       body.name,
       body.memberUserIds,
+      body.photoKey,
     );
     return ApiResponseDto.success(thread, "Group created successfully");
   }
@@ -96,7 +97,7 @@ export class ChatController {
     @Param("threadId") threadId: string,
     @Body() body: CreateMessageReqDto,
   ): Promise<ApiResponseDto<ChatMessageResDto>> {
-    const message = await this.chatService.sendMessage(user.sub, threadId, body.content);
+    const message = await this.chatService.sendMessage(user.sub, threadId, body.content || "", body.mediaUrl, body.mediaType);
     return ApiResponseDto.success(message, "Message sent successfully");
   }
 
