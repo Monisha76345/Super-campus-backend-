@@ -1,5 +1,6 @@
 import { Module, OnModuleInit } from "@nestjs/common";
 import { registerEntities } from "src/core/database/entities.registry";
+import { NotificationModule } from "src/modules/notification/notification.module";
 import { ConnectController } from "./controller/connect.controller";
 import { CampusEvent } from "./entity/campus-event.model";
 import { CampusClub } from "./entity/campus-club.model";
@@ -9,6 +10,7 @@ import { ConnectDataService } from "./service/connect-data.service";
 import { ConnectService } from "./service/connect.service";
 
 @Module({
+  imports: [NotificationModule],
   controllers: [ConnectController],
   providers: [ConnectDataService, ConnectService],
   exports: [ConnectService],

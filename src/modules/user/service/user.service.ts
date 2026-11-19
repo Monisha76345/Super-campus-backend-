@@ -33,6 +33,7 @@ import { UserMapper } from "../mapper/user.mapper";
 import { UserRepository } from "../repository/user.repository";
 import { collegeEmailDomain, isCollegeEmail, normalizeMobile } from "./college-email";
 import { DirectoryCsvRow, parseDirectoryCsv } from "./directory-csv";
+import { parseDirectoryExcel } from "./directory-excel";
 import { UserDataService } from "./user-data.service";
 
 export const GLOBAL_NAMESPACE = "global";
@@ -62,10 +63,14 @@ export class UserService {
 
   async importDirectory(actorId: string, fileName: string, contents: Buffer): Promise<ImportBatchResDto> {
     const namespace = this.tenantContext.getTenantId();
-    const parsed = parseDirectoryCsv(contents.toString("utf8"), collegeEmailDomain(this.config, namespace));
+    const domain = collegeEmailDomain(this.config, namespace);
+    const lowerName = (fileName || "").toLowerCase();
+    const parsed = lowerName.endsWith(".xlsx") || lowerName.endsWith(".xls")
+      ? await parseDirectoryExcel(contents, domain)
+      : parseDirectoryCsv(contents.toString("utf8"), domain);
     const batch = new ImportBatch();
     batch.id = randomUUID();
-    batch.fileName = fileName || "directory.csv";
+    batch.fileName = fileName || "directory.xlsx";
     batch.uploadedBy = actorId;
     batch.createdBy = actorId;
     batch.status = ImportBatchStatus.PROCESSING;
@@ -856,5 +861,9 @@ export class UserService {
     user.theme = theme;
     await this.data.saveUser(namespace, user);
     return { theme };
+  }
+
+  async findUserIdsByRoles(namespace: string, roles: DirectoryRole[]): Promise<string[]> {
+    return this.data.findUserIdsByRoles(namespace, roles);
   }
 }

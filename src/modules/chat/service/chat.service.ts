@@ -1,6 +1,9 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { randomUUID } from "crypto";
 import { TenantContextService } from "src/core/tenant/tenant-context.service";
+import { NotificationCategory } from "src/modules/notification/entity/enums/notification-category.enum";
+import { NotificationType } from "src/modules/notification/entity/enums/notification-type.enum";
+import { NotificationService } from "src/modules/notification/service/notification.service";
 import { ChatDataService } from "./chat-data.service";
 import { ChatThread } from "../entity/chat-thread.model";
 import { ChatParticipant } from "../entity/chat-participant.model";
@@ -17,6 +20,7 @@ export class ChatService {
   constructor(
     private readonly data: ChatDataService,
     private readonly tenantContext: TenantContextService,
+    private readonly notifications: NotificationService,
   ) {}
 
   private get namespace(): string {
@@ -507,6 +511,22 @@ export class ChatService {
     await this.data.saveThread(this.namespace, thread);
 
     const userProfile = await this.data.findDirectoryUserById(this.namespace, userId);
+    const senderName = userProfile?.directory.fullName || "Someone";
+
+    const recipientIds = participants.map((p) => p.userId).filter((id) => id !== userId);
+    void this.notifications.notify({
+      userIds: recipientIds,
+      category: NotificationCategory.MESSAGES,
+      type: NotificationType.CHAT_MESSAGE,
+      title: thread.type === ChatThreadType.GROUP ? thread.name || "Group chat" : senderName,
+      body: cleanContent.slice(0, 140),
+      actorId: userId,
+      data: {
+        screen: "chat",
+        threadId,
+        messageId: savedMsg.id,
+      },
+    });
 
     return {
       id: savedMsg.id,

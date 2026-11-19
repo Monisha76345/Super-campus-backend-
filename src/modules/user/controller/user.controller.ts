@@ -1,6 +1,18 @@
-import { BadRequestException, Body, Controller, Get, Param, Patch, Post, Query, UploadedFile, UseInterceptors } from "@nestjs/common";
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  StreamableFile,
+  UploadedFile,
+  UseInterceptors,
+} from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
-import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiTags } from "@nestjs/swagger";
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiProduces, ApiTags } from "@nestjs/swagger";
 import { BufferedFile } from "src/common/s3-client/file.model";
 import { ROLES } from "src/core/common/constants/roles";
 import { CurrentUser, JwtPayload } from "src/core/common/decorators/current-user.decorator";
@@ -12,6 +24,11 @@ import { DirectoryResDto } from "../dto/response/directory.res.dto";
 import { ImportBatchResDto } from "../dto/response/import-batch.res.dto";
 import { PendingAlumniPageResDto } from "../dto/response/pending-alumni.res.dto";
 import { UpdateThemeReqDto } from "../dto/request/update-theme.req.dto";
+import {
+  buildDirectoryExcelTemplate,
+  DIRECTORY_EXCEL_TEMPLATE_FILENAME,
+  directoryExcelMimeType,
+} from "../service/directory-excel";
 import { UserService } from "../service/user.service";
 
 @ApiTags("Users")
@@ -19,6 +36,23 @@ import { UserService } from "../service/user.service";
 @Controller("users")
 export class UserController {
   constructor(private readonly userService: UserService) {}
+
+  @Get("import/template")
+  @Roles(ROLES.CAMPUS_ADMIN, ROLES.SUPER_ADMIN)
+  @ApiProduces("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+  @ApiOperation({
+    summary: "Download the college directory Excel template",
+    description:
+      "CDRMS-style workbook: green title, yellow column headers, empty rows to fill. Upload the filled .xlsx (or a .csv with the same headers) via POST /users/import.",
+  })
+  async downloadImportTemplate(): Promise<StreamableFile> {
+    const buffer = await buildDirectoryExcelTemplate();
+    const encoded = encodeURIComponent(DIRECTORY_EXCEL_TEMPLATE_FILENAME);
+    return new StreamableFile(buffer, {
+      type: directoryExcelMimeType(),
+      disposition: `attachment; filename="${DIRECTORY_EXCEL_TEMPLATE_FILENAME}"; filename*=UTF-8''${encoded}`,
+    });
+  }
 
   @Post("import")
   @Roles(ROLES.CAMPUS_ADMIN, ROLES.SUPER_ADMIN)
@@ -34,18 +68,24 @@ export class UserController {
   @ApiOperation({
     summary: "Import the college directory",
     description:
-      "CSV columns: USN, full name, college email (@nmit.ac.in), password, department, batch, program, hostelite (yes/no), role, mobile. Student, faculty, and admin rows include the college password. Alumni rows wait for admin approval of USN and mobile.",
+      "Accepts the Excel template (.xlsx) or CSV with columns: USN, full name, college email, password, department, batch, program, hostelite (yes/no), role, mobile. Download GET /users/import/template first.",
   })
   async importDirectory(
     @CurrentUser() user: JwtPayload,
     @UploadedFile() file: BufferedFile,
   ): Promise<ApiResponseDto<ImportBatchResDto>> {
     if (!file?.buffer?.length) {
-      throw new BadRequestException("A CSV file is required");
+      throw new BadRequestException("A directory file is required");
     }
     const name = file.originalname?.toLowerCase() ?? "";
-    if (name && !name.endsWith(".csv") && !name.endsWith(".txt")) {
-      throw new BadRequestException("Upload a CSV file");
+    const ok =
+      name.endsWith(".xlsx") ||
+      name.endsWith(".xls") ||
+      name.endsWith(".csv") ||
+      name.endsWith(".txt") ||
+      !name;
+    if (!ok) {
+      throw new BadRequestException("Upload the Excel template (.xlsx) or a CSV file");
     }
     const result = await this.userService.importDirectory(user.sub, file.originalname, file.buffer);
     return ApiResponseDto.success(result, "Success");

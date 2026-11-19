@@ -9,6 +9,9 @@ import { randomUUID } from "crypto";
 import { ROLES } from "src/core/common/constants/roles";
 import { JwtPayload } from "src/core/common/decorators/current-user.decorator";
 import { TenantContextService } from "src/core/tenant/tenant-context.service";
+import { NotificationCategory } from "src/modules/notification/entity/enums/notification-category.enum";
+import { NotificationType } from "src/modules/notification/entity/enums/notification-type.enum";
+import { NotificationService } from "src/modules/notification/service/notification.service";
 import { CreateMarketplaceItemReqDto } from "../dto/request/create-marketplace-item.req.dto";
 import { MarketplaceQueryDto } from "../dto/request/marketplace-query.dto";
 import { UpdateItemStatusReqDto } from "../dto/request/update-item-status.req.dto";
@@ -29,6 +32,7 @@ export class MarketplaceService {
   constructor(
     private readonly data: MarketplaceDataService,
     private readonly tenantContext: TenantContextService,
+    private readonly notifications: NotificationService,
   ) {}
 
   private checkIsAdmin(user: JwtPayload): boolean {
@@ -202,6 +206,27 @@ export class MarketplaceService {
 
     item.updatedBy = user.sub;
     const saved = await this.data.save(namespace, item);
+
+    if (
+      (saved.status === MarketplaceStatus.APPROVED || saved.status === MarketplaceStatus.REJECTED) &&
+      saved.sellerId !== user.sub
+    ) {
+      const approved = saved.status === MarketplaceStatus.APPROVED;
+      void this.notifications.notify({
+        userIds: [saved.sellerId],
+        category: NotificationCategory.MARKETPLACE,
+        type: approved
+          ? NotificationType.MARKETPLACE_LISTING_APPROVED
+          : NotificationType.MARKETPLACE_LISTING_REJECTED,
+        title: approved ? "Listing approved" : "Listing rejected",
+        body: approved
+          ? `Your listing "${saved.title}" is now live`
+          : `Your listing "${saved.title}" was rejected`,
+        actorId: user.sub,
+        data: { screen: "marketplace", itemId: saved.id },
+      });
+    }
+
     const like = await this.data.findLike(namespace, id, user.sub);
     return MarketplaceMapper.toResponse(saved, !!like);
   }

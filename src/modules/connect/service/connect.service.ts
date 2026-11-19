@@ -2,6 +2,9 @@ import { BadRequestException, Injectable, NotFoundException } from "@nestjs/comm
 import { randomUUID } from "crypto";
 import { JwtPayload } from "src/core/common/decorators/current-user.decorator";
 import { TenantContextService } from "src/core/tenant/tenant-context.service";
+import { NotificationCategory } from "src/modules/notification/entity/enums/notification-category.enum";
+import { NotificationType } from "src/modules/notification/entity/enums/notification-type.enum";
+import { NotificationService } from "src/modules/notification/service/notification.service";
 import { ConnectDataService } from "./connect-data.service";
 import { CampusEvent } from "../entity/campus-event.model";
 import { CampusOpportunity } from "../entity/campus-opportunity.model";
@@ -21,6 +24,7 @@ export class ConnectService {
   constructor(
     private readonly data: ConnectDataService,
     private readonly tenantContext: TenantContextService,
+    private readonly notifications: NotificationService,
   ) {}
 
   private get namespace(): string {
@@ -449,6 +453,22 @@ export class ConnectService {
 
     await this.data.saveConnection(this.namespace, conn);
 
+    const requester = await this.data.findMemberById(this.namespace, requesterId);
+    const requesterName = requester?.directory?.fullName || "Someone";
+    void this.notifications.notify({
+      userIds: [receiverId],
+      category: NotificationCategory.CONNECT,
+      type: NotificationType.CONNECTION_REQUEST,
+      title: "New connection request",
+      body: `${requesterName} wants to connect with you`,
+      actorId: requesterId,
+      data: {
+        screen: "connect",
+        connectionId: conn.id,
+        requesterUserId: requesterId,
+      },
+    });
+
     return {
       status: "PENDING",
       message: "Connection request sent",
@@ -494,6 +514,24 @@ export class ConnectService {
 
     const nextStatus = action === "ACCEPT" ? ConnectionStatus.ACCEPTED : ConnectionStatus.REJECTED;
     await this.data.updateConnectionStatus(this.namespace, connectionId, nextStatus);
+
+    if (action === "ACCEPT") {
+      const accepter = await this.data.findMemberById(this.namespace, userId);
+      const accepterName = accepter?.directory?.fullName || "Someone";
+      void this.notifications.notify({
+        userIds: [conn.requesterUserId],
+        category: NotificationCategory.CONNECT,
+        type: NotificationType.CONNECTION_ACCEPTED,
+        title: "Connection accepted",
+        body: `${accepterName} accepted your connection request`,
+        actorId: userId,
+        data: {
+          screen: "connect",
+          connectionId: conn.id,
+          userId,
+        },
+      });
+    }
 
     return {
       status: nextStatus,

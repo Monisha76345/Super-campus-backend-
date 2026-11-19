@@ -7,6 +7,9 @@ import {
 } from "@nestjs/common";
 import { randomBytes } from "crypto";
 import { v4 as uuidv4 } from "uuid";
+import { NotificationCategory } from "src/modules/notification/entity/enums/notification-category.enum";
+import { NotificationType } from "src/modules/notification/entity/enums/notification-type.enum";
+import { NotificationService } from "src/modules/notification/service/notification.service";
 import {
   AddTeammateDto,
   CallOffDayDto,
@@ -38,7 +41,10 @@ export interface SlotAvailability {
 
 @Injectable()
 export class SportsService {
-  constructor(private readonly dataService: SportsDataService) {}
+  constructor(
+    private readonly dataService: SportsDataService,
+    private readonly notifications: NotificationService,
+  ) {}
 
   // ---------------- Facilities ----------------
   async getFacilities(
@@ -373,6 +379,18 @@ export class SportsService {
     const updatedBooking = await this.dataService.saveBooking(namespace, booking);
     const players = await this.dataService.findPlayersByBookingId(namespace, booking.id);
 
+    if (booking.userId !== user.id) {
+      void this.notifications.notify({
+        userIds: [booking.userId],
+        category: NotificationCategory.SPORTS,
+        type: NotificationType.SPORTS_PLAYER_JOINED,
+        title: "Player joined your game",
+        body: `${player.userName} joined your booking on ${booking.bookingDate}`,
+        actorId: user.id,
+        data: { screen: "sports", bookingId: booking.id },
+      });
+    }
+
     return { ...updatedBooking, players };
   }
 
@@ -419,6 +437,16 @@ export class SportsService {
     const savedPlayer = await this.dataService.savePlayer(namespace, player);
     booking.currentPlayersCount += 1;
     await this.dataService.saveBooking(namespace, booking);
+
+    void this.notifications.notify({
+      userIds: [dto.userId],
+      category: NotificationCategory.SPORTS,
+      type: NotificationType.SPORTS_TEAMMATE_ADDED,
+      title: "Added to a sports booking",
+      body: `You were added to a game on ${booking.bookingDate} at ${booking.startTime?.slice(0, 5)}`,
+      actorId: hostUserId,
+      data: { screen: "sports", bookingId: booking.id },
+    });
 
     return savedPlayer;
   }
@@ -505,7 +533,21 @@ export class SportsService {
     booking.cancellationReason = dto?.reason || "Cancelled by student";
     booking.updatedBy = userId;
 
-    return this.dataService.saveBooking(namespace, booking);
+    const saved = await this.dataService.saveBooking(namespace, booking);
+    const players = await this.dataService.findPlayersByBookingId(namespace, bookingId);
+    const recipientIds = players.map((p) => p.userId).filter((id) => id !== userId);
+    if (recipientIds.length) {
+      void this.notifications.notify({
+        userIds: recipientIds,
+        category: NotificationCategory.SPORTS,
+        type: NotificationType.SPORTS_BOOKING_CANCELLED,
+        title: "Sports booking cancelled",
+        body: `A game on ${booking.bookingDate} was cancelled`,
+        actorId: userId,
+        data: { screen: "sports", bookingId: booking.id },
+      });
+    }
+    return saved;
   }
 
   // ---------------- Admin: Create Facility ----------------

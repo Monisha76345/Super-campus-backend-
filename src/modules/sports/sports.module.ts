@@ -1,6 +1,7 @@
 import { Module, OnModuleInit } from "@nestjs/common";
 import { registerEntities } from "src/core/database/entities.registry";
 import { TenantModule } from "src/core/tenant/tenant.module";
+import { NotificationModule } from "src/modules/notification/notification.module";
 import { SportsController } from "./controller/sports.controller";
 import { SportsBooking } from "./entity/sports-booking.model";
 import { SportsBookingPlayer } from "./entity/sports-booking-player.model";
@@ -10,7 +11,7 @@ import { SportsDataService } from "./service/sports-data.service";
 import { SportsService } from "./service/sports.service";
 
 @Module({
-  imports: [TenantModule],
+  imports: [TenantModule, NotificationModule],
   controllers: [SportsController],
   providers: [SportsService, SportsDataService],
   exports: [SportsService],

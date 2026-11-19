@@ -1,6 +1,10 @@
 import { randomUUID } from "crypto";
 import { BadRequestException, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { TenantContextService } from "src/core/tenant/tenant-context.service";
+import { NotificationCategory } from "src/modules/notification/entity/enums/notification-category.enum";
+import { NotificationType } from "src/modules/notification/entity/enums/notification-type.enum";
+import { NotificationService } from "src/modules/notification/service/notification.service";
+import { DirectoryRole } from "src/modules/user/entity/enums/directory-role.enum";
 import { UserService } from "src/modules/user/service/user.service";
 import { CreateOutpassReqDto } from "../dto/request/create-outpass.req.dto";
 import { GateScanReqDto } from "../dto/request/gate-scan.req.dto";
@@ -23,6 +27,7 @@ export class OutpassService {
     private readonly user: UserService,
     private readonly tenantContext: TenantContextService,
     private readonly sms: SmsNotificationService,
+    private readonly notifications: NotificationService,
   ) {}
 
   async create(userId: string, body: CreateOutpassReqDto): Promise<OutpassResDto> {
@@ -78,6 +83,19 @@ export class OutpassService {
 
     const saved = await this.data.save(namespace, outpass);
     this.logger.log(`Created outpass request ${saved.id} for student ${userId} on ${namespace}`);
+
+    void this.notifications.notifyRoles(
+      [DirectoryRole.WARDEN, DirectoryRole.SUPER_ADMIN, DirectoryRole.CAMPUS_ADMIN],
+      {
+        category: NotificationCategory.OUTPASS,
+        type: NotificationType.OUTPASS_SUBMITTED,
+        title: "New outpass request",
+        body: `${student.fullName} requested outpass to ${saved.destination}`,
+        actorId: userId,
+        data: { screen: "outpass", outpassId: saved.id },
+      },
+    );
+
     return OutpassMapper.toResponse(saved);
   }
 
@@ -140,6 +158,20 @@ export class OutpassService {
 
     const saved = await this.data.save(namespace, row);
     this.logger.log(`Reviewed outpass ${saved.id}: status=${saved.status} by admin ${actorId} on ${namespace}`);
+
+    const approved = saved.status === OutpassStatus.APPROVED;
+    void this.notifications.notify({
+      userIds: [saved.studentId],
+      category: NotificationCategory.OUTPASS,
+      type: approved ? NotificationType.OUTPASS_APPROVED : NotificationType.OUTPASS_REJECTED,
+      title: approved ? "Outpass approved" : "Outpass rejected",
+      body: approved
+        ? `Your outpass to ${saved.destination} was approved`
+        : `Your outpass to ${saved.destination} was rejected${saved.rejectionReason ? `: ${saved.rejectionReason}` : ""}`,
+      actorId: actorId,
+      data: { screen: "outpass", outpassId: saved.id },
+    });
+
     return OutpassMapper.toResponse(saved);
   }
 
@@ -222,6 +254,29 @@ export class OutpassService {
 
     const saved = await this.data.save(namespace, row);
     this.logger.log(`Gate scan ${action} recorded for outpass ${saved.id}. Status: ${saved.status}. Parent SMS sent: ${smsSent}`);
+
+    if (saved.status === OutpassStatus.OVERDUE) {
+      void this.notifications.notify({
+        userIds: [saved.studentId],
+        category: NotificationCategory.OUTPASS,
+        type: NotificationType.OUTPASS_OVERDUE,
+        title: "Late hostel return",
+        body: `You returned after the expected time for your outpass to ${saved.destination}`,
+        actorId: actorId,
+        data: { screen: "outpass", outpassId: saved.id },
+      });
+      void this.notifications.notifyRoles(
+        [DirectoryRole.WARDEN, DirectoryRole.SUPER_ADMIN],
+        {
+          category: NotificationCategory.OUTPASS,
+          type: NotificationType.OUTPASS_OVERDUE,
+          title: "Student returned late",
+          body: `${saved.studentName || "Student"} returned late from ${saved.destination}`,
+          actorId: actorId,
+          data: { screen: "outpass", outpassId: saved.id },
+        },
+      );
+    }
 
     return {
       actionTaken: action,

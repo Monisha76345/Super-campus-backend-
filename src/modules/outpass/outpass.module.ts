@@ -1,5 +1,6 @@
 import { Module, OnModuleInit } from "@nestjs/common";
 import { registerEntities } from "src/core/database/entities.registry";
+import { NotificationModule } from "src/modules/notification/notification.module";
 import { UserModule } from "src/modules/user/user.module";
 import { OutpassController } from "./controller/outpass.controller";
 import { OutpassRequest } from "./entity/outpass.model";
@@ -8,7 +9,7 @@ import { OutpassService } from "./service/outpass.service";
 import { SmsNotificationService } from "./service/sms-notification.service";
 
 @Module({
-  imports: [UserModule],
+  imports: [UserModule, NotificationModule],
   controllers: [OutpassController],
   providers: [OutpassDataService, OutpassService, SmsNotificationService],
   exports: [OutpassService, SmsNotificationService],

@@ -1,0 +1,9 @@
+export enum NotificationCategory {
+  MESSAGES = "MESSAGES",
+  PROJECTS = "PROJECTS",
+  OUTPASS = "OUTPASS",
+  SPORTS = "SPORTS",
+  MARKETPLACE = "MARKETPLACE",
+  CONNECT = "CONNECT",
+  CAMPUS = "CAMPUS",
+}

@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { DbClientService } from "src/core/database/db-client.service";
 import { CampusDirectory } from "../entity/campus-directory.model";
+import { DirectoryRole } from "../entity/enums/directory-role.enum";
 import { GlobalLogin } from "../entity/global-login.model";
 import { ImportBatch } from "../entity/import-batch.model";
 import { UserProfile } from "../entity/profile.model";
@@ -87,5 +88,9 @@ export class UserDataService {
 
   async findProfileByHandle(namespace: string, handle: string): Promise<UserProfile | null> {
     return (await this.repo(namespace)).findProfileByHandle(handle);
+  }
+
+  async findUserIdsByRoles(namespace: string, roles: DirectoryRole[]): Promise<string[]> {
+    return (await this.repo(namespace)).findUserIdsByRoles(roles);
   }
 }

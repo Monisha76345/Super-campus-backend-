@@ -86,4 +86,18 @@ export class UserRepository {
   findProfileByHandle(handle: string): Promise<UserProfile | null> {
     return this.manager.getRepository(UserProfile).findOne({ where: { handle } });
   }
+
+  async findUserIdsByRoles(roles: DirectoryRole[]): Promise<string[]> {
+    if (!roles.length) return [];
+    const rows = await this.manager
+      .getRepository(UserAccount)
+      .createQueryBuilder("u")
+      .innerJoin(CampusDirectory, "d", "d.id = u.directoryId")
+      .where("d.role IN (:...roles)", { roles })
+      .andWhere("u.deletedAt IS NULL")
+      .andWhere("d.deletedAt IS NULL")
+      .select("u.id", "id")
+      .getRawMany<{ id: string }>();
+    return rows.map((r) => r.id);
+  }
 }

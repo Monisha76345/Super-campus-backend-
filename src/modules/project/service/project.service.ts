@@ -9,6 +9,9 @@ import { randomUUID } from "crypto";
 import { ROLES } from "src/core/common/constants/roles";
 import { JwtPayload } from "src/core/common/decorators/current-user.decorator";
 import { TenantContextService } from "src/core/tenant/tenant-context.service";
+import { NotificationCategory } from "src/modules/notification/entity/enums/notification-category.enum";
+import { NotificationType } from "src/modules/notification/entity/enums/notification-type.enum";
+import { NotificationService } from "src/modules/notification/service/notification.service";
 import { CreateProjectReqDto } from "../dto/request/create-project.req.dto";
 import { ProjectQueryDto } from "../dto/request/project-query.dto";
 import {
@@ -35,6 +38,7 @@ export class ProjectService {
   constructor(
     private readonly data: ProjectDataService,
     private readonly tenantContext: TenantContextService,
+    private readonly notifications: NotificationService,
   ) {}
 
   async createProject(user: JwtPayload, dto: CreateProjectReqDto): Promise<ProjectResDto> {
@@ -331,6 +335,19 @@ export class ProjectService {
     app.createdAt = new Date();
 
     const saved = await this.data.saveApplication(namespace, app);
+
+    if (project.creatorId && project.creatorId !== user.sub) {
+      void this.notifications.notify({
+        userIds: [project.creatorId],
+        category: NotificationCategory.PROJECTS,
+        type: NotificationType.PROJECT_APPLICATION,
+        title: "New project application",
+        body: `${saved.applicantName} applied as ${saved.roleApplied} on ${project.title}`,
+        actorId: user.sub,
+        data: { screen: "projects", projectId: project.id, applicationId: saved.id },
+      });
+    }
+
     return {
       id: saved.id,
       projectId: saved.projectId,

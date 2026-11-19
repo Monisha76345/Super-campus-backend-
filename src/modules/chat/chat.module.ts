@@ -7,9 +7,10 @@ import { ChatThread } from "./entity/chat-thread.model";
 import { ChatParticipant } from "./entity/chat-participant.model";
 import { ChatMessage } from "./entity/chat-message.model";
 import { TenantModule } from "src/core/tenant/tenant.module";
+import { NotificationModule } from "src/modules/notification/notification.module";
 
 @Module({
-  imports: [TenantModule],
+  imports: [TenantModule, NotificationModule],
   controllers: [ChatController],
   providers: [ChatService, ChatDataService],
   exports: [ChatService],

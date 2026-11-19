@@ -1,5 +1,6 @@
 import { Module, OnModuleInit } from "@nestjs/common";
 import { registerEntities } from "src/core/database/entities.registry";
+import { NotificationModule } from "src/modules/notification/notification.module";
 import { ProjectController } from "./controller/project.controller";
 import { ProjectApplication } from "./entity/project-application.model";
 import { ProjectContribution } from "./entity/project-contribution.model";
@@ -11,6 +12,7 @@ import { ProjectDataService } from "./service/project-data.service";
 import { ProjectService } from "./service/project.service";
 
 @Module({
+  imports: [NotificationModule],
   controllers: [ProjectController],
   providers: [ProjectDataService, ProjectService],
   exports: [ProjectService],

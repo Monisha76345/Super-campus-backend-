@@ -24,6 +24,7 @@ import { ConnectModule } from "./modules/connect/connect.module";
 import { CommunityModule } from "./modules/community/community.module";
 import { SportsModule } from "./modules/sports/sports.module";
 import { FoodModule } from "./modules/food/food.module";
+import { NotificationModule } from "./modules/notification/notification.module";
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { FoodModule } from "./modules/food/food.module";
     MailModule,
     AuthModule,
     DocumentUploaderModule,
+    NotificationModule,
     OutpassModule,
     ProjectModule,
     ChatModule,

@@ -52,11 +52,34 @@ const HEADER_MAP: Record<string, keyof Omit<DirectoryCsvRow, "rowNumber">> = {
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/** Headers-only CSV fallback (no sample data). Prefer the Excel template for yellow headers. */
+export const DIRECTORY_CSV_TEMPLATE_FILENAME = "campus-directory-template.csv";
+
+export const DIRECTORY_TEMPLATE_HEADERS =
+  "usn,fullName,collegeEmail,password,department,batch,program,hostelite,role,mobile";
+
+/** Empty CSV (headers only) — admins fill rows manually. */
+export function buildDirectoryCsvTemplate(): string {
+  return DIRECTORY_TEMPLATE_HEADERS;
+}
+
 export function parseDirectoryCsv(text: string, emailDomain: string): ParsedDirectoryCsv {
-  const table = parseCsv(text.replace(/^\uFEFF/, ""));
-  const headerIndex = table.findIndex((cells) => cells.some((cell) => cell.trim()));
+  return parseDirectoryTable(parseCsv(text.replace(/^\uFEFF/, "")), emailDomain);
+}
+
+/**
+ * Shared table parser for CSV and Excel. Finds the header row by known column names
+ * (skips a green title row like CDRMS).
+ */
+export function parseDirectoryTable(table: string[][], emailDomain: string): ParsedDirectoryCsv {
+  const headerIndex = table.findIndex((cells) => {
+    const mapped = cells.map((cell) => HEADER_MAP[normalizeHeader(cell)]);
+    return mapped.includes("usn") && mapped.includes("fullName") && mapped.includes("collegeEmail");
+  });
   if (headerIndex < 0) {
-    throw new BadRequestException("The file is empty");
+    throw new BadRequestException(
+      "Column headers were not found. Download the template and keep usn, fullName, collegeEmail, and role.",
+    );
   }
   const columns = table[headerIndex].map((cell) => HEADER_MAP[normalizeHeader(cell)]);
   for (const name of ["usn", "fullName", "collegeEmail", "role"] as const) {
@@ -68,7 +91,7 @@ export function parseDirectoryCsv(text: string, emailDomain: string): ParsedDire
   const rows: DirectoryCsvRow[] = [];
   const errors: DirectoryCsvError[] = [];
   for (let index = headerIndex + 1; index < table.length; index += 1) {
-    const cells = table[index];
+    const cells = table[index] ?? [];
     if (cells.every((cell) => !cell.trim())) {
       continue;
     }
