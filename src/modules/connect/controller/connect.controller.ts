@@ -12,6 +12,7 @@ import { CurrentUser, JwtPayload } from "src/core/common/decorators/current-user
 import { ApiResponseDto } from "src/core/common/dto/api-response.dto";
 import { ConnectService } from "../service/connect.service";
 import { CreateEventReqDto } from "../dto/request/create-event.req.dto";
+import { CreateClubReqDto } from "../dto/request/create-club.req.dto";
 import { CreateOpportunityReqDto } from "../dto/request/create-opportunity.req.dto";
 import { CampusEventResDto } from "../dto/response/campus-event.res.dto";
 import { CampusClubResDto } from "../dto/response/campus-club.res.dto";
@@ -47,6 +48,21 @@ export class ConnectController {
   async getClubs(@CurrentUser() user?: JwtPayload): Promise<ApiResponseDto<CampusClubResDto[]>> {
     const list = await this.connectService.getClubs(user?.sub);
     return ApiResponseDto.success(list, "Clubs retrieved");
+  }
+
+  @Post("clubs")
+  @ApiOperation({ summary: "Register and publish a new campus club" })
+  async createClub(
+    @CurrentUser() user: JwtPayload,
+    @Body() body: CreateClubReqDto,
+  ): Promise<ApiResponseDto<CampusClubResDto>> {
+    try {
+      const club = await this.connectService.createClub(user.sub, body);
+      return ApiResponseDto.success(club, "Club created successfully");
+    } catch (err: any) {
+      console.error("CREATE CLUB ERROR:", err);
+      throw err;
+    }
   }
 
   @Get("clubs/:id")

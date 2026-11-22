@@ -7,11 +7,13 @@ import { NotificationType } from "src/modules/notification/entity/enums/notifica
 import { NotificationService } from "src/modules/notification/service/notification.service";
 import { ConnectDataService } from "./connect-data.service";
 import { CampusEvent } from "../entity/campus-event.model";
+import { CampusClub } from "../entity/campus-club.model";
 import { CampusOpportunity } from "../entity/campus-opportunity.model";
 import { CampusConnection, ConnectionStatus } from "../entity/campus-connection.model";
 import { EventStatus } from "../entity/enums/event-status.enum";
 import { OpportunityType } from "../entity/enums/opportunity-type.enum";
 import { CreateEventReqDto } from "../dto/request/create-event.req.dto";
+import { CreateClubReqDto } from "../dto/request/create-club.req.dto";
 import { CreateOpportunityReqDto } from "../dto/request/create-opportunity.req.dto";
 import { CampusEventResDto } from "../dto/response/campus-event.res.dto";
 import { CampusClubResDto } from "../dto/response/campus-club.res.dto";
@@ -236,6 +238,75 @@ export class ConnectService {
       status: saved.status,
       isJoined,
       members,
+    };
+  }
+
+  async createClub(userId: string, body: CreateClubReqDto): Promise<CampusClubResDto> {
+    let fullName = body.leadName?.trim() || "";
+    let usn: string | null = null;
+    let department = "Campus";
+    let batch = "2024";
+
+    try {
+      const dirInfo = await this.data.findMemberById(this.namespace, userId);
+      if (dirInfo?.directory) {
+        if (!fullName) fullName = dirInfo.directory.fullName;
+        usn = dirInfo.directory.usn || null;
+        department = dirInfo.directory.department || department;
+        batch = dirInfo.directory.batch || batch;
+      }
+    } catch {
+      // Fallback
+    }
+
+    if (!fullName) {
+      fullName = "Campus Lead";
+    }
+
+    const club = new CampusClub();
+    club.id = `club-${randomUUID().slice(0, 8)}`;
+    club.name = body.name.trim();
+    club.category = body.category.trim();
+    club.description = body.description.trim();
+    club.leadUserId = userId;
+    club.leadName = fullName;
+    club.meetingSchedule = body.meetingSchedule?.trim() || null;
+    club.roomOrVenue = body.roomOrVenue?.trim() || null;
+    club.contactEmail = body.contactEmail?.trim() || null;
+    club.bannerKey = body.bannerKey?.trim() || null;
+    club.memberCount = 1;
+    club.status = "ACTIVE";
+    club.createdBy = userId;
+
+    const founderMember = {
+      userId,
+      fullName,
+      clubRole: "Club Founder & Lead",
+      department,
+      batch,
+      usn,
+      initials: this.initials(fullName),
+      isLead: true,
+    };
+    club.membersData = [founderMember];
+
+    const saved = await this.data.saveClub(this.namespace, club);
+
+    return {
+      id: saved.id,
+      name: saved.name,
+      category: saved.category,
+      description: saved.description,
+      leadUserId: saved.leadUserId,
+      leadName: saved.leadName,
+      meetingSchedule: saved.meetingSchedule,
+      roomOrVenue: saved.roomOrVenue,
+      contactEmail: saved.contactEmail,
+      memberCount: saved.memberCount,
+      bannerKey: saved.bannerKey,
+      status: saved.status,
+      isJoined: true,
+      members: club.membersData,
     };
   }
 
