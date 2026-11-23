@@ -28,4 +28,19 @@ export class CampusOpportunityResDto {
 
   @ApiProperty({ nullable: true })
   deadline: string | null;
+
+  @ApiProperty({ description: "User ID of the poster/recruiter" })
+  createdBy: string;
+
+  @ApiProperty({ nullable: true, description: "Name of the recruiter or poster" })
+  creatorName?: string | null;
+
+  @ApiProperty({ nullable: true, description: "Role of the recruiter or poster" })
+  creatorRole?: string | null;
+
+  @ApiProperty({ nullable: true, description: "Photo key of the recruiter or poster" })
+  creatorPhotoKey?: string | null;
+
+  @ApiProperty({ nullable: true, description: "Contact email of the recruiter or poster" })
+  creatorEmail?: string | null;
 }

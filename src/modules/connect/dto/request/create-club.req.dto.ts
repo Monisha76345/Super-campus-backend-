@@ -1,6 +1,28 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { IsNotEmpty, IsOptional, IsString, MaxLength } from "class-validator";
 
+export class CreateClubAchievementDto {
+  @ApiProperty({ description: "Achievement title", example: "National Collegiate Champion" })
+  @IsString()
+  @IsNotEmpty()
+  title: string;
+
+  @ApiPropertyOptional({ description: "Short description / summary", example: "Won 1st prize in All-India Robotics Cup" })
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @ApiPropertyOptional({ description: "Badge text", example: "1st Place 🏆" })
+  @IsOptional()
+  @IsString()
+  badgeText?: string;
+
+  @ApiPropertyOptional({ description: "Date or year", example: "2026" })
+  @IsOptional()
+  @IsString()
+  date?: string;
+}
+
 export class CreateClubReqDto {
   @ApiProperty({ description: "Club name", example: "Google Developer Student Club" })
   @IsString()
@@ -18,6 +40,15 @@ export class CreateClubReqDto {
   @IsString()
   @IsNotEmpty()
   description: string;
+
+  @ApiPropertyOptional({ description: "Detailed club overview, mission, and activities" })
+  @IsOptional()
+  @IsString()
+  overview?: string;
+
+  @ApiPropertyOptional({ description: "Initial club achievements and accolades (text or list)" })
+  @IsOptional()
+  achievements?: CreateClubAchievementDto[] | string;
 
   @ApiPropertyOptional({ description: "Lead person full name", example: "Aryan Deshmukh" })
   @IsOptional()

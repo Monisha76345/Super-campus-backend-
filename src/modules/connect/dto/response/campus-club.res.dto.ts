@@ -26,6 +26,26 @@ export class ClubMemberItemDto {
   isLead: boolean;
 }
 
+export class ClubAchievementResDto {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty()
+  clubId: string;
+
+  @ApiProperty()
+  title: string;
+
+  @ApiProperty()
+  description: string;
+
+  @ApiProperty()
+  badgeText: string;
+
+  @ApiProperty()
+  date: string;
+}
+
 export class CampusClubResDto {
   @ApiProperty()
   id: string;
@@ -38,6 +58,9 @@ export class CampusClubResDto {
 
   @ApiProperty()
   description: string;
+
+  @ApiPropertyOptional({ nullable: true })
+  overview?: string | null;
 
   @ApiPropertyOptional({ nullable: true })
   leadUserId?: string | null;
@@ -68,4 +91,7 @@ export class CampusClubResDto {
 
   @ApiPropertyOptional({ type: [ClubMemberItemDto] })
   members?: ClubMemberItemDto[];
+
+  @ApiPropertyOptional({ type: [ClubAchievementResDto] })
+  achievements?: ClubAchievementResDto[];
 }

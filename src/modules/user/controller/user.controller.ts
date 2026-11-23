@@ -33,7 +33,7 @@ import { UserService } from "../service/user.service";
 
 @ApiTags("Users")
 @ApiBearerAuth()
-@Controller("users")
+@Controller(["users", "user"])
 export class UserController {
   constructor(private readonly userService: UserService) {}
 

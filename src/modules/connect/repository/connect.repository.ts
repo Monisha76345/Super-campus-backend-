@@ -29,7 +29,17 @@ export class ConnectRepository {
     return this.manager.getRepository(CampusEvent).findOne({ where: { id } });
   }
 
+  private async ensureClubColumns(): Promise<void> {
+    try {
+      await this.manager.query(`ALTER TABLE \`campus_club\` ADD COLUMN \`overview\` TEXT NULL;`);
+    } catch {}
+    try {
+      await this.manager.query(`ALTER TABLE \`campus_club\` ADD COLUMN \`achievements_data\` JSON NULL;`);
+    } catch {}
+  }
+
   async findClubs(): Promise<CampusClub[]> {
+    await this.ensureClubColumns();
     const repo = this.manager.getRepository(CampusClub);
     let clubs = await repo.find({
       where: { status: "ACTIVE" },
@@ -43,12 +53,14 @@ export class ConnectRepository {
   }
 
   async findClubById(id: string): Promise<CampusClub | null> {
+    await this.ensureClubColumns();
     return this.manager.getRepository(CampusClub).findOne({
       where: { id },
     });
   }
 
   async saveClub(club: CampusClub): Promise<CampusClub> {
+    await this.ensureClubColumns();
     return this.manager.getRepository(CampusClub).save(club);
   }
 
@@ -214,6 +226,80 @@ export class ConnectRepository {
 
   async createOpportunity(opportunity: CampusOpportunity): Promise<CampusOpportunity> {
     return this.manager.getRepository(CampusOpportunity).save(opportunity);
+  }
+
+  async findCreatorProfiles(userIds: string[]): Promise<Map<string, { fullName: string; role: string; photoKey: string | null; email: string | null }>> {
+    const map = new Map<string, { fullName: string; role: string; photoKey: string | null; email: string | null }>();
+    if (!userIds.length) return map;
+
+    const users = await this.manager.getRepository(UserAccount).find({
+      where: { id: In(userIds) },
+    });
+    if (!users.length) return map;
+
+    const dirIds = users.map((u) => u.directoryId).filter(Boolean);
+    const [directories, profiles] = await Promise.all([
+      dirIds.length
+        ? this.manager.getRepository(CampusDirectory).find({ where: { id: In(dirIds) } })
+        : Promise.resolve([]),
+      this.manager.getRepository(UserProfile).find({
+        where: { userId: In(userIds) },
+        select: ["id", "userId", "photoKey"],
+      }),
+    ]);
+
+    const dirMap = new Map(directories.map((d) => [d.id, d]));
+    const photoMap = new Map(profiles.map((p) => [p.userId, p.photoKey]));
+
+    for (const u of users) {
+      const dir = dirMap.get(u.directoryId);
+      if (dir) {
+        map.set(u.id, {
+          fullName: dir.fullName,
+          role: dir.role,
+          photoKey: photoMap.get(u.id) || null,
+          email: dir.collegeEmail || dir.personalEmail || null,
+        });
+      }
+    }
+    return map;
+  }
+
+  async findDefaultPlacementAdmin(): Promise<{ id: string; fullName: string; role: string; photoKey: string | null; email: string | null } | null> {
+    const adminDirs = await this.manager.getRepository(CampusDirectory).find({
+      where: { role: In(["SUPER_ADMIN", "CAMPUS_ADMIN", "FACULTY"]) as any },
+      take: 5,
+    });
+    if (adminDirs.length) {
+      const adminDirIds = adminDirs.map((d) => d.id);
+      const user = await this.manager.getRepository(UserAccount).findOne({
+        where: { directoryId: In(adminDirIds) },
+      });
+      if (user) {
+        const adminDir = adminDirs.find((d) => d.id === user.directoryId) || adminDirs[0];
+        const profile = await this.manager.getRepository(UserProfile).findOne({
+          where: { userId: user.id },
+          select: ["id", "userId", "photoKey"],
+        });
+
+        return {
+          id: user.id,
+          fullName: adminDir.fullName || "Placement & Career Cell",
+          role: adminDir.role || "CAMPUS_ADMIN",
+          photoKey: profile?.photoKey || null,
+          email: adminDir.collegeEmail || null,
+        };
+      }
+    }
+
+    // Fallback: Return default campus admin account
+    return {
+      id: "22222222-2222-4222-8222-222222222224",
+      fullName: "Placement & Career Cell",
+      role: "CAMPUS_ADMIN",
+      photoKey: null,
+      email: "campus.admin@nmit.ac.in",
+    };
   }
 
   async searchMembers(options: {

@@ -161,8 +161,20 @@ export class UserService {
     return UserMapper.toDirectory(saved);
   }
 
+  private resolveNamespace(): string {
+    try {
+      const ns = this.tenantContext.getTenantId();
+      if (!ns || ns === "all") {
+        return process.env.DEFAULT_TENANT_ID || "nmit";
+      }
+      return ns;
+    } catch {
+      return process.env.DEFAULT_TENANT_ID || "nmit";
+    }
+  }
+
   async listPendingAlumni(page = 1, limit = 20): Promise<PendingAlumniPageResDto> {
-    const namespace = this.tenantContext.getTenantId();
+    const namespace = this.resolveNamespace();
     const [rows, total] = await this.data.findPendingAlumni(namespace, page, limit);
     return {
       data: rows.map((row) => UserMapper.toDirectory(row)),
@@ -171,7 +183,8 @@ export class UserService {
   }
 
   async claimAlumni(tenantId: string, usn: string, mobile: string): Promise<DirectoryResDto> {
-    const directory = await this.requireDirectory(tenantId, usn);
+    const targetTenant = !tenantId || tenantId === "all" ? (process.env.DEFAULT_TENANT_ID || "nmit") : tenantId;
+    const directory = await this.requireDirectory(targetTenant, usn);
     if (directory.role !== DirectoryRole.ALUMNI) {
       throw new BadRequestException("This USN is not an alumni record. Contact the campus admin");
     }
@@ -188,13 +201,13 @@ export class UserService {
     directory.mobile = normalized;
     directory.status = DirectoryStatus.PENDING;
     directory.updatedBy = directory.usn;
-    const saved = await this.data.saveDirectory(tenantId, directory);
-    this.logger.log(`Alumni claim saved for ${saved.usn} on ${tenantId}`);
+    const saved = await this.data.saveDirectory(targetTenant, directory);
+    this.logger.log(`Alumni claim saved for ${saved.usn} on ${targetTenant}`);
     return UserMapper.toDirectory(saved);
   }
 
   async approveAlumni(actorId: string, usn: string): Promise<DirectoryResDto> {
-    const namespace = this.tenantContext.getTenantId();
+    const namespace = this.resolveNamespace();
     const directory = await this.requireDirectory(namespace, usn);
     if (directory.role !== DirectoryRole.ALUMNI) {
       throw new BadRequestException("This USN is not an alumni record");
@@ -211,7 +224,7 @@ export class UserService {
   }
 
   async rejectAlumni(actorId: string, usn: string): Promise<DirectoryResDto> {
-    const namespace = this.tenantContext.getTenantId();
+    const namespace = this.resolveNamespace();
     const directory = await this.requireDirectory(namespace, usn);
     if (directory.role !== DirectoryRole.ALUMNI) {
       throw new BadRequestException("This USN is not an alumni record");

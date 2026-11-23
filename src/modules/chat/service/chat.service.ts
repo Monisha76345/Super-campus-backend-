@@ -408,18 +408,23 @@ export class ChatService {
   }
 
   async startDirectChat(userId: string, recipientUserId: string): Promise<ChatThreadResDto> {
-    if (userId === recipientUserId) {
+    const targetRecipientId =
+      recipientUserId === "system" || recipientUserId === "placement-officer"
+        ? "22222222-2222-4222-8222-222222222224"
+        : recipientUserId;
+
+    if (userId === targetRecipientId) {
       throw new BadRequestException("You cannot start a chat with yourself");
     }
 
     // Verify recipient exists
-    const recipientUser = await this.data.findDirectoryUserById(this.namespace, recipientUserId);
+    const recipientUser = await this.data.findDirectoryUserById(this.namespace, targetRecipientId);
     if (!recipientUser) {
       throw new NotFoundException("Recipient user not found on this campus");
     }
 
     // Check if a direct thread already exists
-    let thread = await this.data.findDirectThreadBetween(this.namespace, userId, recipientUserId);
+    let thread = await this.data.findDirectThreadBetween(this.namespace, userId, targetRecipientId);
     if (!thread) {
       const threadId = randomUUID();
       thread = new ChatThread();
@@ -443,7 +448,7 @@ export class ChatService {
       const p2 = new ChatParticipant();
       p2.id = randomUUID();
       p2.threadId = threadId;
-      p2.userId = recipientUserId;
+      p2.userId = targetRecipientId;
       p2.createdBy = userId;
       p2.updatedBy = userId;
       await this.data.saveParticipant(this.namespace, p2);

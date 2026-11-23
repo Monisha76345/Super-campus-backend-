@@ -52,6 +52,19 @@ export class ConnectDataService {
     return (await this.repo(namespace)).createOpportunity(opportunity);
   }
 
+  async findCreatorProfiles(
+    namespace: string,
+    userIds: string[],
+  ): Promise<Map<string, { fullName: string; role: string; photoKey: string | null; email: string | null }>> {
+    return (await this.repo(namespace)).findCreatorProfiles(userIds);
+  }
+
+  async findDefaultPlacementAdmin(
+    namespace: string,
+  ): Promise<{ id: string; fullName: string; role: string; photoKey: string | null; email: string | null } | null> {
+    return (await this.repo(namespace)).findDefaultPlacementAdmin();
+  }
+
   async searchMembers(
     namespace: string,
     options: { role?: string; batch?: string; query?: string },

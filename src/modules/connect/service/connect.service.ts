@@ -121,11 +121,13 @@ export class ConnectService {
     return list.map((c) => {
       const members = Array.isArray(c.membersData) ? c.membersData : [];
       const isJoined = Boolean(userId && members.some((m: any) => m.userId === userId));
+      const achievements = Array.isArray(c.achievementsData) ? c.achievementsData : [];
       return {
         id: c.id,
         name: c.name,
         category: c.category,
         description: c.description,
+        overview: c.overview || null,
         leadUserId: c.leadUserId,
         leadName: c.leadName,
         meetingSchedule: c.meetingSchedule,
@@ -136,6 +138,7 @@ export class ConnectService {
         status: c.status,
         isJoined,
         members,
+        achievements,
       };
     });
   }
@@ -148,12 +151,14 @@ export class ConnectService {
 
     const members = Array.isArray(club.membersData) ? club.membersData : [];
     const isJoined = Boolean(userId && members.some((m: any) => m.userId === userId));
+    const achievements = Array.isArray(club.achievementsData) ? club.achievementsData : [];
 
     return {
       id: club.id,
       name: club.name,
       category: club.category,
       description: club.description,
+      overview: club.overview || null,
       leadUserId: club.leadUserId,
       leadName: club.leadName,
       meetingSchedule: club.meetingSchedule,
@@ -164,6 +169,7 @@ export class ConnectService {
       status: club.status,
       isJoined,
       members,
+      achievements,
     };
   }
 
@@ -222,12 +228,14 @@ export class ConnectService {
 
     club.membersData = members;
     const saved = await this.data.saveClub(this.namespace, club);
+    const achievements = Array.isArray(saved.achievementsData) ? saved.achievementsData : [];
 
     return {
       id: saved.id,
       name: saved.name,
       category: saved.category,
       description: saved.description,
+      overview: saved.overview || null,
       leadUserId: saved.leadUserId,
       leadName: saved.leadName,
       meetingSchedule: saved.meetingSchedule,
@@ -238,6 +246,7 @@ export class ConnectService {
       status: saved.status,
       isJoined,
       members,
+      achievements,
     };
   }
 
@@ -268,6 +277,7 @@ export class ConnectService {
     club.name = body.name.trim();
     club.category = body.category.trim();
     club.description = body.description.trim();
+    club.overview = body.overview?.trim() || null;
     club.leadUserId = userId;
     club.leadName = fullName;
     club.meetingSchedule = body.meetingSchedule?.trim() || null;
@@ -277,6 +287,44 @@ export class ConnectService {
     club.memberCount = 1;
     club.status = "ACTIVE";
     club.createdBy = userId;
+
+    if (typeof body.achievements === "string" && body.achievements.trim()) {
+      const rawText = body.achievements as string;
+      const lines = rawText.split("\n").map((l: string) => l.trim()).filter(Boolean);
+      club.achievementsData = lines.map((line: string) => ({
+        id: `ach-${randomUUID().slice(0, 8)}`,
+        clubId: club.id,
+        title: line.replace(/^[•\-\*]\s*/, ""),
+        description: "",
+        badgeText: "Milestone 🏆",
+        date: "2026",
+      }));
+    } else if (body.achievements && Array.isArray(body.achievements) && body.achievements.length > 0) {
+      club.achievementsData = body.achievements
+        .filter((a: any) => a && ((typeof a === "string" && a.trim()) || (typeof a === "object" && a.title && a.title.trim())))
+        .map((a: any) => {
+          if (typeof a === "string") {
+            return {
+              id: `ach-${randomUUID().slice(0, 8)}`,
+              clubId: club.id,
+              title: a.trim().replace(/^[•\-\*]\s*/, ""),
+              description: "",
+              badgeText: "Milestone 🏆",
+              date: "2026",
+            };
+          }
+          return {
+            id: `ach-${randomUUID().slice(0, 8)}`,
+            clubId: club.id,
+            title: a.title.trim(),
+            description: a.description?.trim() || "",
+            badgeText: a.badgeText?.trim() || "Milestone 🏆",
+            date: a.date?.trim() || "2026",
+          };
+        });
+    } else {
+      club.achievementsData = [];
+    }
 
     const founderMember = {
       userId,
@@ -297,6 +345,7 @@ export class ConnectService {
       name: saved.name,
       category: saved.category,
       description: saved.description,
+      overview: saved.overview || null,
       leadUserId: saved.leadUserId,
       leadName: saved.leadName,
       meetingSchedule: saved.meetingSchedule,
@@ -307,22 +356,46 @@ export class ConnectService {
       status: saved.status,
       isJoined: true,
       members: club.membersData,
+      achievements: saved.achievementsData || [],
     };
   }
 
   async getOpportunities(type?: OpportunityType): Promise<CampusOpportunityResDto[]> {
     const list = await this.data.findOpportunities(this.namespace, type);
-    return list.map((o) => ({
-      id: o.id,
-      title: o.title,
-      company: o.company,
-      type: o.type,
-      location: o.location,
-      stipendOrSalary: o.stipendOrSalary,
-      description: o.description,
-      applyUrl: o.applyUrl,
-      deadline: o.deadline ? new Date(o.deadline).toISOString() : null,
-    }));
+    const userIds = Array.from(new Set(list.map((o) => o.createdBy).filter((id) => id && id !== "system")));
+    const [creatorMap, defaultAdmin] = await Promise.all([
+      this.data.findCreatorProfiles(this.namespace, userIds),
+      this.data.findDefaultPlacementAdmin(this.namespace),
+    ]);
+
+    const fallbackAdminId = defaultAdmin?.id || "22222222-2222-4222-8222-222222222224";
+
+    return list.map((o) => {
+      const creator = creatorMap.get(o.createdBy);
+      const isSystem = !o.createdBy || o.createdBy === "system";
+      const resolvedCreatorId = isSystem ? fallbackAdminId : (o.createdBy || fallbackAdminId);
+      const resolvedName = creator?.fullName || (isSystem ? (defaultAdmin?.fullName || "Placement & Career Cell") : (o.company ? `${o.company} Recruiter` : "Campus Recruiter"));
+      const resolvedRole = creator?.role || (isSystem ? "CAMPUS_ADMIN" : "Recruiter");
+      const resolvedPhotoKey = creator?.photoKey || (isSystem ? defaultAdmin?.photoKey || null : null);
+      const resolvedEmail = creator?.email || (isSystem ? defaultAdmin?.email || null : null);
+
+      return {
+        id: o.id,
+        title: o.title,
+        company: o.company,
+        type: o.type,
+        location: o.location,
+        stipendOrSalary: o.stipendOrSalary,
+        description: o.description,
+        applyUrl: o.applyUrl,
+        deadline: o.deadline ? new Date(o.deadline).toISOString() : null,
+        createdBy: resolvedCreatorId,
+        creatorName: resolvedName,
+        creatorRole: resolvedRole,
+        creatorPhotoKey: resolvedPhotoKey,
+        creatorEmail: resolvedEmail,
+      };
+    });
   }
 
   async createOpportunity(userId: string, body: CreateOpportunityReqDto): Promise<CampusOpportunityResDto> {
@@ -352,6 +425,8 @@ export class ConnectService {
     opp.createdBy = userId;
 
     const saved = await this.data.createOpportunity(this.namespace, opp);
+    const creatorProfiles = await this.data.findCreatorProfiles(this.namespace, [userId]);
+    const creator = creatorProfiles.get(userId);
 
     return {
       id: saved.id,
@@ -363,6 +438,11 @@ export class ConnectService {
       description: saved.description,
       applyUrl: saved.applyUrl,
       deadline: saved.deadline ? new Date(saved.deadline).toISOString() : null,
+      createdBy: saved.createdBy,
+      creatorName: creator?.fullName || null,
+      creatorRole: creator?.role || null,
+      creatorPhotoKey: creator?.photoKey || null,
+      creatorEmail: creator?.email || null,
     };
   }
 

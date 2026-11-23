@@ -14,6 +14,9 @@ export class CampusClub {
   @Column({ type: "text" })
   description: string;
 
+  @Column({ type: "text", nullable: true })
+  overview: string | null;
+
   @Column({ name: "lead_user_id", type: "varchar", length: 36, nullable: true })
   leadUserId: string | null;
 
@@ -31,6 +34,9 @@ export class CampusClub {
 
   @Column({ name: "members_data", type: "json", nullable: true })
   membersData: any[] | null;
+
+  @Column({ name: "achievements_data", type: "json", nullable: true })
+  achievementsData: any[] | null;
 
   @Column({ name: "member_count", type: "int", default: 1 })
   memberCount: number;
